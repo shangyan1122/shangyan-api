@@ -7,13 +7,14 @@ WORKDIR /app
 
 # 复制 package 文件
 COPY server/package*.json ./
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 # 复制源代码
 COPY server/dist ./dist
 COPY server/assets ./assets
 COPY server/certs ./certs
 COPY server/database ./database
+COPY web-admin ./web-admin
 
 # 暴露端口
 EXPOSE 3000
