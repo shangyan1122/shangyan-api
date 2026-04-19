@@ -1,15 +1,15 @@
-FROM node:20-alpine
+FROM node:20-slim
 
-# 安装必要的系统依赖
-RUN apk add --no-cache python3 make g++
+# 安装 bcrypt 编译所需的系统依赖
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# 复制 package 文件
+# 复制 package 文件并安装生产依赖
 COPY server/package*.json ./
 RUN npm ci --omit=dev
 
-# 复制源代码
+# 复制源代码和静态资源
 COPY server/dist ./dist
 COPY server/assets ./assets
 COPY server/certs ./certs
