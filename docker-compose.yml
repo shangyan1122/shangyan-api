@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  # Web 管理后台
+  web-admin:
+    image: nginx:alpine
+    container_name: shangyan-admin
+    restart: always
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - ./web-admin/dist:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - server
+    networks:
+      - shangyan-network
+
+  # 后端 API 服务
+  server:
+    image: node:18-alpine
+    container_name: shangyan-server
+    restart: always
+    working_dir: /app
+    command: sh -c "npm install && npm run start:prod"
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - DATABASE_URL=${DATABASE_URL}
+      - WECHAT_APPID=${WECHAT_APPID}
+      - WECHAT_SECRET=${WECHAT_SECRET}
+      - WECHAT_MCHID=${WECHAT_MCHID}
+      - WECHAT_APIKEY=${WECHAT_APIKEY}
+      - SENTRY_DSN=${SENTRY_DSN}
+      - TOS_ENDPOINT=${TOS_ENDPOINT}
+      - TOS_REGION=${TOS_REGION}
+      - TOS_ACCESS_KEY=${TOS_ACCESS_KEY}
+      - TOS_SECRET_KEY=${TOS_SECRET_KEY}
+      - TOS_BUCKET=${TOS_BUCKET}
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    networks:
+      - shangyan-network
+
+networks:
+  shangyan-network:
+    driver: bridge
