@@ -4,7 +4,7 @@ WORKDIR /app
 
 # 复制 package 文件并安装生产依赖（bcrypt 6.x 有预编译二进制，无需编译工具）
 COPY server/package*.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --legacy-peer-deps
 
 # 复制源代码和静态资源
 COPY server/dist ./dist
