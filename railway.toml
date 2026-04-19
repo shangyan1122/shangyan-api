@@ -1,10 +1,14 @@
 [build]
-builder = "nixpacks"
-buildCommand = "cd server && npm install && npm run build"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "cd server && npm run start:prod"
+startCommand = "node server/dist/main"
 healthcheckPath = "/health"
-healthcheckTimeout = 100
+healthcheckTimeout = 300
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10
+
+[deploy.envVars]
+NODE_ENV = "production"
+PORT = "3000"
