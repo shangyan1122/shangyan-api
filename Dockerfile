@@ -1,11 +1,8 @@
 FROM node:20-slim
 
-# 安装 bcrypt 编译所需的系统依赖
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
 
-# 复制 package 文件并安装生产依赖
+# 复制 package 文件并安装生产依赖（bcrypt 6.x 有预编译二进制，无需编译工具）
 COPY server/package*.json ./
 RUN npm ci --omit=dev
 
