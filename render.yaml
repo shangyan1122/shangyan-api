@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: shangyan-api
+    runtime: node
+    repo: https://github.com/shangyan1122/shangyan-api
+    branch: main
+    buildCommand: cd server && npm install && npm run build
+    startCommand: cd server && npm run start:prod
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: WECHAT_APP_ID
+        value: wx5c588dece21c6a42
+      - key: WECHAT_APP_SECRET
+        sync: false
+      - key: SUPABASE_URL
+        value: https://qrkwbbphskndxzkfsfep.supabase.co
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: AI_PROVIDER
+        value: siliconflow
+      - key: SILICONFLOW_API_KEY
+        sync: false
+      - key: TENCENT_CLOUD_SECRET_ID
+        sync: false
+      - key: TENCENT_CLOUD_SECRET_KEY
+        sync: false
+      - key: TENCENT_SMS_APP_ID
+        value: "401108684"
+      - key: ADMIN_ALLOWED_PHONES
+        value: "19503511949"
