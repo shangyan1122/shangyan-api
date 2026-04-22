@@ -40,7 +40,7 @@ async function bootstrap() {
   });
 
   // 静态文件服务 - Web 管理后台（必须在 setGlobalPrefix 之前配置，避免被 api 前缀覆盖）
-  const webAdminDist = path.join(__dirname, '../../web-admin');
+  const webAdminDist = path.join(__dirname, '../web-admin');
   app.use('/admin', express.static(webAdminDist));
   app.use('/admin', (req, res) => {
     res.sendFile(path.join(webAdminDist, 'index.html'));

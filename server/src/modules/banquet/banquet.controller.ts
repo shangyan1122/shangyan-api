@@ -244,7 +244,7 @@ export class BanquetController {
   }
 
   /**
-   * 删除宴会（仅限草稿状态）
+   * 删除宴会（无礼账记录即可删除）
    */
   @Delete(':id')
   async deleteBanquet(@Param('id') id: string, @Req() req: Request) {
@@ -271,10 +271,12 @@ export class BanquetController {
         };
       }
 
-      if (banquet.status !== 'draft') {
+      // 检查是否有礼账记录，有礼账则不能删除
+      const giftRecords = await this.banquetService.getGiftRecordsByBanquetId(id);
+      if (giftRecords && giftRecords.length > 0) {
         return {
           code: 400,
-          msg: '只能删除草稿状态的宴会',
+          msg: `宴会有 ${giftRecords.length} 笔礼账记录，无法删除`,
           data: null,
         };
       }

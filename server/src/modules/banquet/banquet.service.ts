@@ -110,7 +110,7 @@ export class BanquetService {
       openid: banquetData.host_openid || banquetData.openid,
       banquet_type: banquetData.type || banquetData.banquet_type,
       banquet_name: banquetData.name || banquetData.banquet_name,
-      host_name: banquetData.hostName || banquetData.host_name || banquetData.host_nickname || null,
+      host_name: banquetData.hostName || banquetData.host_name || banquetData.host_nickname || banquetData.name?.split('的')[0] || '主人',
       host_phone: banquetData.host_phone || null,
       banquet_date: banquetData.eventTime
         ? new Date(banquetData.eventTime).toISOString().split('T')[0]
@@ -242,6 +242,24 @@ export class BanquetService {
       this.logger.error(`删除宴会失败: ${error.message}`);
       throw new Error(error.message);
     }
+  }
+
+  /**
+   * 获取宴会的礼账记录
+   */
+  async getGiftRecordsByBanquetId(banquetId: string) {
+    const client = getSupabaseClient();
+    const { data, error } = await client
+      .from('gift_records')
+      .select('id')
+      .eq('banquet_id', banquetId);
+
+    if (error) {
+      this.logger.error(`获取礼账记录失败: ${error.message}`);
+      return [];
+    }
+
+    return data || [];
   }
 
   /**

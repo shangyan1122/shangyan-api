@@ -18,8 +18,8 @@ RUN npm run build
 # 移除开发依赖
 RUN npm prune --omit=dev
 
-# 复制微信支付证书（如果存在）
-COPY server/certs ./certs 2>/dev/null || true
+# 复制微信支付证书
+COPY server/certs ./certs
 
 # 复制数据库初始化脚本
 COPY server/database ./database
