@@ -34,7 +34,7 @@ export class PaidFeaturesService {
     const { data: features, error } = await client
       .from('banquet_paid_features')
       .select('*')
-      .eq('banquet_id', client.from('banquets').select('id').eq('host_openid', openid));
+      .eq('banquet_id', client.from('banquets').select('id').eq('openid', openid));
 
     if (error) {
       this.logger.error('查询付费功能状态失败:', error);

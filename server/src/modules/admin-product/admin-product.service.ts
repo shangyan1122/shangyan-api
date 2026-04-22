@@ -98,7 +98,7 @@ export class AdminProductService {
   }): Promise<{ products: AdminGiftProduct[]; total: number }> {
     this.logger.log(`获取商品列表: ${JSON.stringify(params)}`);
 
-    let query = supabase.from('gift_products').select('*', { count: 'exact' });
+    let query = supabase.from('products').select('*', { count: 'exact' });
 
     if (params?.category) {
       query = query.eq('category', params.category);
@@ -140,7 +140,7 @@ export class AdminProductService {
    * 获取商品详情
    */
   async getProductById(id: string): Promise<AdminGiftProduct | null> {
-    const { data, error } = await supabase.from('gift_products').select('*').eq('id', id).single();
+    const { data, error } = await supabase.from('products').select('*').eq('id', id).single();
 
     if (error) {
       if (error.code === 'PGRST116') {
@@ -165,7 +165,7 @@ export class AdminProductService {
     const productId = `prod_${timestamp}_${random}`;
 
     const { data, error } = await supabase
-      .from('gift_products')
+      .from('products')
       .insert({
         id: productId,
         ...params,
@@ -174,7 +174,7 @@ export class AdminProductService {
         supply_cost_price: params.supply_cost_price || 0,
         alibaba_1688_sync_status: 'none',
         status: 'active',
-        sales: 0,
+        sold_count: 0,
         created_at: new Date().toISOString(),
       })
       .select()
@@ -195,7 +195,7 @@ export class AdminProductService {
     this.logger.log(`更新商品: ${id}`);
 
     const { data, error } = await supabase
-      .from('gift_products')
+      .from('products')
       .update({
         ...params,
         updated_at: new Date().toISOString(),
@@ -218,7 +218,7 @@ export class AdminProductService {
   async deleteProduct(id: string): Promise<void> {
     this.logger.log(`删除商品: ${id}`);
 
-    const { error } = await supabase.from('gift_products').delete().eq('id', id);
+    const { error } = await supabase.from('products').delete().eq('id', id);
 
     if (error) {
       this.logger.error('删除商品失败:', error);
@@ -238,7 +238,7 @@ export class AdminProductService {
     const newStatus = product.status === 'active' ? 'inactive' : 'active';
 
     const { data, error } = await supabase
-      .from('gift_products')
+      .from('products')
       .update({
         status: newStatus,
         updated_at: new Date().toISOString(),
@@ -313,7 +313,7 @@ export class AdminProductService {
     }
 
     const { data, error } = await supabase
-      .from('gift_products')
+      .from('products')
       .update(updateData)
       .eq('id', id)
       .select()
@@ -477,7 +477,7 @@ export class AdminProductService {
 
     // 4. 更新同步状态
     await supabase
-      .from('gift_products')
+      .from('products')
       .update({
         alibaba_1688_sync_status: 'synced',
         alibaba_1688_synced_at: new Date().toISOString(),
@@ -532,7 +532,7 @@ export class AdminProductService {
     from1688: number;
     manual: number;
   }> {
-    const { data, error } = await supabase.from('gift_products').select('status, source');
+    const { data, error } = await supabase.from('products').select('status, source');
 
     if (error) {
       this.logger.error('获取商品统计失败:', error);
@@ -555,7 +555,7 @@ export class AdminProductService {
    */
   async getCategories(): Promise<{ name: string; count: number }[]> {
     const { data, error } = await supabase
-      .from('gift_products')
+      .from('products')
       .select('category')
       .eq('status', 'active');
 

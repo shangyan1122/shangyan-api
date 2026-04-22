@@ -38,7 +38,7 @@ export class ExcelExportService {
       const { data: banquets, error: banquetsError } = await supabase
         .from('banquets')
         .select('id, name, type, event_time')
-        .eq('host_openid', openid);
+        .eq('openid', openid);
 
       if (banquetsError) {
         this.logger.error('查询宴会列表失败:', banquetsError);
@@ -203,7 +203,7 @@ export class ExcelExportService {
         .from('banquets')
         .select('*')
         .eq('id', banquetId)
-        .eq('host_openid', openid)
+        .eq('openid', openid)
         .single();
 
       if (banquetError || !banquet) {

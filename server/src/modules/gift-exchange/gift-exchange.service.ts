@@ -71,7 +71,7 @@ export class GiftExchangeService {
     // 2. 先获取目标商品信息（用于获取置换服务费率）
     const targetIds = dto.targetItems.map((item) => item.id);
     const { data: products, error: productError } = await client
-      .from('gift_products')
+      .from('products')
       .select('id, name, price, stock, exchange_service_fee_rate')
       .in('id', targetIds)
       .eq('status', 'active');
@@ -191,7 +191,7 @@ export class GiftExchangeService {
       const product = products.find((p: any) => p.id === item.id);
       if (product) {
         await client
-          .from('gift_products')
+          .from('products')
           .update({ stock: product.stock - item.quantity })
           .eq('id', item.id);
       }
@@ -407,14 +407,14 @@ export class GiftExchangeService {
     // 2. 恢复目标商品库存
     for (const item of exchange.targetItems) {
       const { data: product } = await client
-        .from('gift_products')
+        .from('products')
         .select('stock')
         .eq('id', item.id)
         .single();
 
       if (product) {
         await client
-          .from('gift_products')
+          .from('products')
           .update({ stock: product.stock + item.quantity })
           .eq('id', item.id);
       }

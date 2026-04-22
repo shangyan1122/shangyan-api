@@ -1,0 +1,30 @@
+{
+  "$schema": "https://static.cloudbase.net/cli/cloudbaserc.schema.json",
+  "version": "2.0",
+  "envId": "shangyanliji-d3gqga5yk22ed0cd4",
+  "framework": {
+    "name": "docker",
+    "plugins": {
+      "container": {
+        "use": "@cloudbase/framework-plugin-container",
+        "inputs": {
+          "serviceName": "shangyan-api",
+          "servicePath": "/",
+          "localPath": ".",
+          "dockerfilePath": "./cloudbase/Dockerfile",
+          "containerPort": 80,
+          "minNum": 0,
+          "maxNum": 10,
+          "cpu": 0.25,
+          "mem": 0.5,
+          "policyType": "cpu",
+          "policyThreshold": 60,
+          "envVariables": {
+            "NODE_ENV": "production",
+            "PORT": "80"
+          }
+        }
+      }
+    }
+  }
+}

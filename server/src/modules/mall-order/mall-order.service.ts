@@ -81,7 +81,7 @@ export class MallOrderService {
     // 1. 查询商品信息
     const productIds = dto.items.map((item) => item.productId);
     const { data: products, error: productError } = await client
-      .from('gift_products')
+      .from('products')
       .select('*')
       .in('id', productIds);
 
@@ -198,7 +198,7 @@ export class MallOrderService {
         const product = products.find((p: any) => p.id === item.productId);
         if (product) {
           await client
-            .from('gift_products')
+            .from('products')
             .update({
               stock: product.stock - item.quantity,
             })
@@ -526,7 +526,7 @@ export class MallOrderService {
 
     for (const item of items || []) {
       await client
-        .from('gift_products')
+        .from('products')
         .update({
           stock: client.rpc('increment', {
             table_name: 'gift_products',

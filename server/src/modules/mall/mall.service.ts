@@ -54,11 +54,11 @@ export class MallService {
     const to = limit ? limit - 1 : from + pageSize - 1;
 
     let query = client
-      .from('gift_products')
+      .from('products')
       .select('*', { count: 'exact' })
       .eq('status', 'active')
       .gt('stock', 0)
-      .order('sales', { ascending: false })
+      .order('sold_count', { ascending: false })
       .range(from, to);
 
     // 旧分类参数（保留兼容）
@@ -95,7 +95,7 @@ export class MallService {
   async getProductById(id: string): Promise<GiftProduct | null> {
     const client = getSupabaseClient();
 
-    const { data, error } = await client.from('gift_products').select('*').eq('id', id).single();
+    const { data, error } = await client.from('products').select('*').eq('id', id).single();
 
     if (error) {
       this.logger.error('获取商品详情失败:', error);
@@ -112,11 +112,11 @@ export class MallService {
     const client = getSupabaseClient();
 
     const { data, error } = await client
-      .from('gift_products')
+      .from('products')
       .select('*')
       .eq('status', 'active')
       .gt('stock', 0)
-      .order('sales', { ascending: false })
+      .order('sold_count', { ascending: false })
       .limit(limit);
 
     if (error) {
@@ -191,7 +191,7 @@ export class MallService {
 
     const { data, error } = await client
       .from('cart_items')
-      .select('*, gift_products(*)')
+      .select('*, products(*)')
       .eq('user_openid', userOpenid)
       .order('created_at', { ascending: false });
 
@@ -273,12 +273,12 @@ export class MallService {
     const client = getSupabaseClient();
 
     let query = client
-      .from('gift_products')
+      .from('products')
       .select('*')
       .eq('status', 'active')
       .eq('is_specialty', true)
       .gt('stock', 0)
-      .order('sales', { ascending: false })
+      .order('sold_count', { ascending: false })
       .limit(10);
 
     if (region) {
@@ -302,7 +302,7 @@ export class MallService {
     const client = getSupabaseClient();
 
     const { data, error } = await client
-      .from('gift_products')
+      .from('products')
       .select('*')
       .eq('status', 'active')
       .eq('is_recommended', true)
@@ -325,7 +325,7 @@ export class MallService {
     const client = getSupabaseClient();
 
     const { data, error } = await client
-      .from('gift_products')
+      .from('products')
       .select('*')
       .eq('status', 'active')
       .gt('stock', 0)
@@ -381,11 +381,11 @@ export class MallService {
     if (banquetIds.length > 0) {
       const { data: banquets } = await client
         .from('banquets')
-        .select('id, name')
+        .select('id, banquet_name')
         .in('id', banquetIds);
 
       banquetMap = (banquets || []).reduce((map: Record<string, string>, b: any) => {
-        map[b.id] = b.name;
+        map[b.id] = b.banquet_name;
         return map;
       }, {});
     }
@@ -472,7 +472,7 @@ export class MallService {
 
     // 7. 扣减目标商品库存
     await client
-      .from('gift_products')
+      .from('products')
       .update({ stock: targetProduct.stock - 1 })
       .eq('id', targetProductId);
 
@@ -550,7 +550,7 @@ export class MallService {
 
     const { data, error } = await client
       .from('voucher_exchanges')
-      .select('*, gift_products(*)')
+      .select('*, products(*)')
       .eq('user_openid', openid)
       .order('created_at', { ascending: false });
 

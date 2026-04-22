@@ -120,13 +120,14 @@ export class RecommendOfficerService {
     data?: OfficerStats & { isOfficer: boolean; officerInfo?: RecommendOfficerInfo };
   }> {
     try {
-      const { data: officer } = await this.supabase
+      const { data: officer, error } = await this.supabase
         .from('recommend_officers')
         .select('*')
         .eq('openid', openid)
         .single();
 
-      if (!officer || officer.status !== 'active') {
+      // 表不存在或其他查询错误，返回未注册状态
+      if (error || !officer || officer.status !== 'active') {
         return {
           code: 200,
           msg: 'success',

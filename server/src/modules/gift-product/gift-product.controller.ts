@@ -21,13 +21,13 @@ export class GiftProductController {
       const client = getSupabaseClient();
 
       let query = client
-        .from('gift_products')
+        .from('products')
         .select('*')
         .eq('status', 'active')
-        .order('sales', { ascending: false });
+        .order('sold_count', { ascending: false });
 
       if (category) {
-        query = query.eq('category', category);
+        query = query.eq('category_id', category);
       }
 
       const { data, error } = await query;
@@ -64,8 +64,8 @@ export class GiftProductController {
       const client = getSupabaseClient();
 
       const { data, error } = await client
-        .from('gift_products')
-        .select('category')
+        .from('products')
+        .select('category_id')
         .eq('status', 'active');
 
       if (error) {
@@ -76,8 +76,9 @@ export class GiftProductController {
       // 去重并统计
       const categoryMap = new Map<string, number>();
       (data || []).forEach((item) => {
-        const count = categoryMap.get(item.category) || 0;
-        categoryMap.set(item.category, count + 1);
+        const cat = item.category_id || '未分类';
+        const count = categoryMap.get(cat) || 0;
+        categoryMap.set(cat, count + 1);
       });
 
       const categories = Array.from(categoryMap.entries()).map(([name, count]) => ({
@@ -102,7 +103,7 @@ export class GiftProductController {
     try {
       const client = getSupabaseClient();
 
-      const { data, error } = await client.from('gift_products').select('*').eq('id', id).single();
+      const { data, error } = await client.from('products').select('*').eq('id', id).single();
 
       if (error || !data) {
         return { code: 404, msg: '商品不存在', data: null };

@@ -1,9 +1,0 @@
-import { SupabaseClient } from '@supabase/supabase-js';
-interface SupabaseCredentials {
-    url: string;
-    anonKey: string;
-}
-declare function loadEnv(): void;
-declare function getSupabaseCredentials(): SupabaseCredentials;
-declare function getSupabaseClient(token?: string): SupabaseClient;
-export { loadEnv, getSupabaseCredentials, getSupabaseClient };

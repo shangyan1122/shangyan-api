@@ -11,10 +11,10 @@ export class UserService {
     const { count: totalBanquets } = await client
       .from('banquets')
       .select('*', { count: 'exact', head: true })
-      .eq('host_openid', openid);
+      .eq('openid', openid);
 
     // 先获取主办方的所有宴会ID
-    const { data: banquets } = await client.from('banquets').select('id').eq('host_openid', openid);
+    const { data: banquets } = await client.from('banquets').select('id').eq('openid', openid);
 
     const banquetIds = banquets?.map((b) => b.id) || [];
 
@@ -48,7 +48,7 @@ export class UserService {
     const { data: banquets } = await client
       .from('banquets')
       .select('id, name')
-      .eq('host_openid', hostOpenid);
+      .eq('openid', hostOpenid);
 
     if (!banquets || banquets.length === 0) {
       return { records: [], total: 0 };

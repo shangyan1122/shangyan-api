@@ -43,7 +43,7 @@ export class WithdrawService {
     const client = getSupabaseClient();
 
     // 1. 获取主办方所有宴会ID
-    const { data: banquets } = await client.from('banquets').select('id').eq('host_openid', openid);
+    const { data: banquets } = await client.from('banquets').select('id').eq('openid', openid);
 
     if (!banquets || banquets.length === 0) {
       return 0;

@@ -3,6 +3,21 @@ import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { AiService } from '../ai/ai.service';
 import { WechatConfigService } from '@/common/services/wechat-config.service';
 
+/**
+ * 宴会服务
+ *
+ * 数据库字段映射（banquets表）：
+ * - openid → 宴会主人openid
+ * - banquet_type → 宴会类型
+ * - banquet_name → 宴会名称
+ * - host_name → 主人姓名
+ * - host_phone → 主人电话
+ * - banquet_date / banquet_time → 宴会日期/时间
+ * - venue_name / venue_address → 场地信息
+ * - protagonist_name / protagonist_photos → 主角信息
+ * - welcome_page_config / thank_page_config → AI页面配置
+ * - ai_page_enabled → 是否启用AI页面
+ */
 @Injectable()
 export class BanquetService {
   private readonly logger = new Logger(BanquetService.name);
@@ -12,10 +27,10 @@ export class BanquetService {
     private readonly wechatConfig: WechatConfigService
   ) {}
 
-  async getBanquets(hostOpenid: string, status?: string) {
+  async getBanquets(openid: string, status?: string) {
     const client = getSupabaseClient();
 
-    let query = client.from('banquets').select('*').eq('host_openid', hostOpenid);
+    let query = client.from('banquets').select('*').eq('openid', openid);
 
     if (status) {
       query = query.eq('status', status);
@@ -28,7 +43,8 @@ export class BanquetService {
       throw new Error(error.message);
     }
 
-    return data;
+    // 转换字段名为前端兼容格式
+    return (data || []).map((item: any) => this.mapDbToApi(item));
   }
 
   async getBanquetById(id: string) {
@@ -40,7 +56,7 @@ export class BanquetService {
       throw new Error(error.message);
     }
 
-    return data;
+    return this.mapDbToApi(data);
   }
 
   async createBanquet(banquetData: any) {
@@ -54,10 +70,8 @@ export class BanquetService {
 
     // 获取主角照片
     const photos = banquetData.photos || [];
-    const coverImage =
-      banquetData.coverImage || banquetData.cover_image || (photos.length > 0 ? photos[0] : null);
 
-    this.logger.log(`照片数量: ${photos.length}, 封面图片: ${coverImage ? '已设置' : '未设置'}`);
+    this.logger.log(`照片数量: ${photos.length}`);
 
     try {
       // 使用主角照片生成欢迎词
@@ -65,7 +79,7 @@ export class BanquetService {
       const welcomeResult = await this.aiService.generateWelcomeWithPhotos({
         banquetType: banquetData.type,
         banquetName: banquetData.name,
-        hostName: banquetData.hostName || banquetData.name.split('的')[0] || '',
+        hostName: banquetData.hostName || banquetData.name?.split('的')[0] || '',
         photos: photos,
       });
       if (welcomeResult && welcomeResult.data) {
@@ -78,7 +92,7 @@ export class BanquetService {
       const thanksResult = await this.aiService.generateThanksWithPhotos({
         banquetType: banquetData.type,
         banquetName: banquetData.name,
-        hostName: banquetData.hostName || banquetData.name.split('的')[0] || '',
+        hostName: banquetData.hostName || banquetData.name?.split('的')[0] || '',
         photos: photos,
       });
       if (thanksResult && thanksResult.data) {
@@ -87,29 +101,32 @@ export class BanquetService {
       }
     } catch (error: any) {
       this.logger.warn(`AI内容生成失败: ${error.message}，使用默认内容`);
-      // 使用默认内容
       aiWelcomePage = `欢迎莅临${banquetData.name}！`;
       aiThankPage = `感谢您参加${banquetData.name}！`;
     }
 
-    const dataToInsert = {
-      host_openid: banquetData.host_openid,
-      type: banquetData.type,
-      name: banquetData.name,
-      host_nickname: banquetData.host_nickname || null,
-      event_time: banquetData.eventTime || banquetData.event_time,
-      location: banquetData.location,
-      photos: banquetData.photos || [],
-      photo_keys: banquetData.photoKeys || banquetData.photo_keys || [],
-      cover_image: banquetData.coverImage || banquetData.cover_image || null,
-      return_gift_config: banquetData.returnGiftConfig || banquetData.return_gift_config || null,
-      return_red_packet: banquetData.returnRedPacket || banquetData.return_red_packet || 0,
-      return_gift_ids: banquetData.returnGiftIds || banquetData.return_gift_ids || [],
+    // 映射前端字段到数据库列名
+    const dataToInsert: Record<string, any> = {
+      openid: banquetData.host_openid || banquetData.openid,
+      banquet_type: banquetData.type || banquetData.banquet_type,
+      banquet_name: banquetData.name || banquetData.banquet_name,
+      host_name: banquetData.hostName || banquetData.host_name || banquetData.host_nickname || null,
+      host_phone: banquetData.host_phone || null,
+      banquet_date: banquetData.eventTime
+        ? new Date(banquetData.eventTime).toISOString().split('T')[0]
+        : banquetData.banquet_date || null,
+      banquet_time: banquetData.eventTime
+        ? new Date(banquetData.eventTime).toTimeString().split(' ')[0]
+        : banquetData.banquet_time || null,
+      venue_name: banquetData.venue_name || (typeof banquetData.location === 'string' ? banquetData.location : null),
+      venue_address: banquetData.venue_address || (typeof banquetData.location === 'string' ? banquetData.location : null),
+      protagonist_name: banquetData.protagonist_name || banquetData.hostName || null,
+      protagonist_photos: photos,
       description: banquetData.description || null,
-      staff_wechat: banquetData.staff_wechat || null,
+      ai_page_enabled: true,
+      welcome_page_config: { content: aiWelcomePage },
+      thank_page_config: { content: aiThankPage },
       status: 'active',
-      ai_welcome_page: aiWelcomePage,
-      ai_thank_page: aiThankPage,
     };
 
     const { data, error } = await client.from('banquets').insert(dataToInsert).select().single();
@@ -121,38 +138,6 @@ export class BanquetService {
 
     this.logger.log(`宴会创建成功: id=${data.id}`);
 
-    // 如果有回礼配置，自动创建 return_gift_settings 记录
-    const returnGiftConfig = banquetData.returnGiftConfig || banquetData.return_gift_config;
-    if (
-      returnGiftConfig &&
-      (returnGiftConfig.red_packet_enabled ||
-        returnGiftConfig.mall_gift_enabled ||
-        returnGiftConfig.onsite_gift_enabled)
-    ) {
-      try {
-        this.logger.log('自动创建回礼设置记录...');
-        const { error: settingsError } = await client.from('return_gift_settings').insert({
-          banquet_id: data.id,
-          red_packet_enabled: returnGiftConfig.red_packet_enabled || false,
-          red_packet_amount: returnGiftConfig.red_packet_amount || 0,
-          mall_gift_enabled: returnGiftConfig.mall_gift_enabled || false,
-          mall_gift_items: returnGiftConfig.mall_gift_items || [],
-          onsite_gift_enabled: returnGiftConfig.onsite_gift_enabled || false,
-          onsite_gift_items: returnGiftConfig.onsite_gift_items || [],
-          gift_claim_mode: 'all',
-          total_budget: returnGiftConfig.total_budget || 0,
-        });
-
-        if (settingsError) {
-          this.logger.warn(`创建回礼设置记录失败: ${settingsError.message}`);
-        } else {
-          this.logger.log('回礼设置记录创建成功');
-        }
-      } catch (err: any) {
-        this.logger.warn(`创建回礼设置记录异常: ${err.message}`);
-      }
-    }
-
     // 自动生成二维码
     try {
       const qrcodeData = await this.getBanquetQrcode(data.id);
@@ -162,17 +147,11 @@ export class BanquetService {
       this.logger.warn(`生成二维码失败: ${err.message}`);
     }
 
-    return data;
+    return this.mapDbToApi(data);
   }
 
   /**
    * 获取宴会二维码
-   * 用于嘉宾扫码进入随礼页面
-   *
-   * scene参数说明：
-   * - 微信限制scene最长32字符
-   * - UUID格式(36字符)会被自动转换为32字符格式（去掉横线）
-   * - 前端scan页面需要将32字符还原为UUID格式
    */
   async getBanquetQrcode(banquetId: string) {
     this.logger.log(`获取宴会二维码: ${banquetId}`);
@@ -184,15 +163,14 @@ export class BanquetService {
         430
       );
 
-      // 返回编码后的scene（32字符格式）
       const encodedScene = result.scene || banquetId.replace(/-/g, '');
 
       return {
         qrcodeUrl: result.base64,
         page: `pages/scan/index?id=${banquetId}`,
         scene: encodedScene,
-        sceneFormat: 'short', // 标识scene是32字符格式
-        originalId: banquetId, // 保留原始UUID
+        sceneFormat: 'short',
+        originalId: banquetId,
         tip: this.wechatConfig.isConfigured()
           ? undefined
           : '请配置微信小程序 AppID 和 AppSecret 后生成真实二维码',
@@ -213,12 +191,38 @@ export class BanquetService {
    */
   async updateBanquet(id: string, data: any) {
     const client = getSupabaseClient();
+
+    // 映射前端字段到数据库列名
+    const updateData: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (data.name || data.banquet_name) {
+      updateData.banquet_name = data.name || data.banquet_name;
+    }
+    if (data.type || data.banquet_type) {
+      updateData.banquet_type = data.type || data.banquet_type;
+    }
+    if (data.hostName || data.host_name) {
+      updateData.host_name = data.hostName || data.host_name;
+    }
+    if (data.location) {
+      updateData.venue_name = data.location;
+      updateData.venue_address = data.location;
+    }
+    if (data.description) {
+      updateData.description = data.description;
+    }
+    if (data.status) {
+      updateData.status = data.status;
+    }
+    if (data.photos) {
+      updateData.protagonist_photos = data.photos;
+    }
+
     const { error } = await client
       .from('banquets')
-      .update({
-        ...data,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', id);
 
     if (error) {
@@ -238,5 +242,35 @@ export class BanquetService {
       this.logger.error(`删除宴会失败: ${error.message}`);
       throw new Error(error.message);
     }
+  }
+
+  /**
+   * 数据库行 → API响应字段映射
+   * 将数据库列名转换为前端使用的字段名
+   */
+  private mapDbToApi(row: any): any {
+    if (!row) return row;
+
+    return {
+      ...row,
+      // 前端兼容字段
+      host_openid: row.openid,
+      type: row.banquet_type,
+      name: row.banquet_name || row.name,
+      host_name: row.host_name,
+      event_time: row.banquet_date
+        ? `${row.banquet_date}${row.banquet_time ? 'T' + row.banquet_time : ''}`
+        : null,
+      location: row.venue_name || row.venue_address,
+      photos: row.protagonist_photos || [],
+      ai_welcome_page:
+        typeof row.welcome_page_config === 'object'
+          ? row.welcome_page_config?.content
+          : row.welcome_page_config,
+      ai_thank_page:
+        typeof row.thank_page_config === 'object'
+          ? row.thank_page_config?.content
+          : row.thank_page_config,
+    };
   }
 }

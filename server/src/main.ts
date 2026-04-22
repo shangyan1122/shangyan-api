@@ -9,6 +9,14 @@ import { initSentry } from '@/common/sentry/sentry.config';
 import { SentryFilter } from '@/common/sentry/sentry.filter';
 
 function parsePort(): number {
+  // 优先使用环境变量 PORT（CloudBase 等云平台使用）
+  if (process.env.PORT) {
+    const port = parseInt(process.env.PORT, 10);
+    if (!isNaN(port) && port > 0 && port < 65536) {
+      return port;
+    }
+  }
+  // 其次使用命令行参数
   const args = process.argv.slice(2);
   const portIndex = args.indexOf('-p');
   if (portIndex !== -1 && args[portIndex + 1]) {
@@ -30,6 +38,14 @@ async function bootstrap() {
     origin: true,
     credentials: true,
   });
+
+  // 静态文件服务 - Web 管理后台（必须在 setGlobalPrefix 之前配置，避免被 api 前缀覆盖）
+  const webAdminDist = path.join(__dirname, '../../web-admin');
+  app.use('/admin', express.static(webAdminDist));
+  app.use('/admin', (req, res) => {
+    res.sendFile(path.join(webAdminDist, 'index.html'));
+  });
+
   app.setGlobalPrefix('api');
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -42,13 +58,6 @@ async function bootstrap() {
 
   // 开启优雅关闭 Hooks (关键!)
   app.enableShutdownHooks();
-
-  // 静态文件服务 - Web 管理后台
-  const webAdminDist = path.join(__dirname, '../../web-admin/dist');
-  app.use('/admin', express.static(webAdminDist));
-  app.use('/admin', (req, res) => {
-    res.sendFile(path.join(webAdminDist, 'index.html'));
-  });
 
   // 初始化存储桶
   try {

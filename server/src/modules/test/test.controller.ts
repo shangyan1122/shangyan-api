@@ -258,7 +258,7 @@ export class TestController {
       .select('id, name, status')
       .like('id', 'test_%');
 
-    const { data: products } = await supabase.from('gift_products').select('id, name').limit(5);
+    const { data: products } = await supabase.from('products').select('id, name').limit(5);
 
     const { data: merchants } = await supabase
       .from('merchant_accounts')
