@@ -49,7 +49,19 @@ export class BanquetService {
 
   async getBanquetById(id: string) {
     const client = getSupabaseClient();
-    const { data, error } = await client.from('banquets').select('*').eq('id', id).single();
+
+    // 支持两种ID格式：
+    // 1. UUID格式（36字符，含横线）：如 71aea610-22b6-4177-94b9-3425ef7b2ebf
+    // 2. 短ID格式（32字符，无横线）：如 71aea61022b6417794b93425ef7b2ebf
+    let queryId = id;
+
+    // 如果是32字符短ID，尝试转换为UUID格式查询
+    if (id.length === 32 && !id.includes('-')) {
+      queryId = `${id.slice(0, 8)}-${id.slice(8, 12)}-${id.slice(12, 16)}-${id.slice(16, 20)}-${id.slice(20)}`;
+      this.logger.log(`短ID转换为UUID: ${id} -> ${queryId}`);
+    }
+
+    const { data, error } = await client.from('banquets').select('*').eq('id', queryId).single();
 
     if (error) {
       console.error('获取宴会详情失败:', error);
