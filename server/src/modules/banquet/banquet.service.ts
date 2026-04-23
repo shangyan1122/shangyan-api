@@ -133,6 +133,7 @@ export class BanquetService {
       banquet_type: banquetData.type || banquetData.banquet_type,
       banquet_name: banquetData.name || banquetData.banquet_name,
       host_name: banquetData.hostName || banquetData.host_name || banquetData.host_nickname || banquetData.name?.split('的')[0] || '主人',
+      host_nickname: banquetData.host_nickname || banquetData.hostName || null,
       host_phone: banquetData.host_phone || null,
       banquet_date: banquetData.eventTime
         ? new Date(banquetData.eventTime).toISOString().split('T')[0]
@@ -144,6 +145,8 @@ export class BanquetService {
       venue_address: banquetData.venue_address || (typeof banquetData.location === 'string' ? banquetData.location : null),
       protagonist_name: banquetData.protagonist_name || banquetData.hostName || null,
       protagonist_photos: photos,
+      // 封面图：优先使用指定的cover_image，其次使用第一张主角照片
+      cover_image: banquetData.cover_image || banquetData.ai_page_cover_image || (photos.length > 0 ? photos[0] : null),
       description: banquetData.description || null,
       ai_page_enabled: true,
       welcome_page_config: { content: aiWelcomePage },
@@ -160,11 +163,19 @@ export class BanquetService {
 
     this.logger.log(`宴会创建成功: id=${data.id}`);
 
-    // 自动生成二维码
+    // 自动生成二维码并保存到数据库
     try {
       const qrcodeData = await this.getBanquetQrcode(data.id);
-      data.qr_code = qrcodeData.qrcodeUrl || null;
-      data.qr_code_page = qrcodeData.page || null;
+      if (qrcodeData.qrcodeUrl) {
+        data.qr_code = qrcodeData.qrcodeUrl;
+        data.qr_code_page = qrcodeData.page;
+        // 保存二维码到数据库
+        await client
+          .from('banquets')
+          .update({ qr_code: qrcodeData.qrcodeUrl, qr_code_page: qrcodeData.page })
+          .eq('id', data.id);
+        this.logger.log(`二维码已保存到数据库: id=${data.id}`);
+      }
     } catch (err: any) {
       this.logger.warn(`生成二维码失败: ${err.message}`);
     }
@@ -298,11 +309,16 @@ export class BanquetService {
       type: row.banquet_type,
       name: row.banquet_name || row.name,
       host_name: row.host_name,
+      host_nickname: row.host_nickname || row.host_name,
       event_time: row.banquet_date
         ? `${row.banquet_date}${row.banquet_time ? 'T' + row.banquet_time : ''}`
         : null,
       location: row.venue_name || row.venue_address,
       photos: row.protagonist_photos || [],
+      cover_image: row.cover_image || (row.protagonist_photos && row.protagonist_photos.length > 0 ? row.protagonist_photos[0] : null),
+      qr_code: row.qr_code || null,
+      qr_code_page: row.qr_code_page || null,
+      description: row.description || null,
       ai_welcome_page:
         typeof row.welcome_page_config === 'object'
           ? row.welcome_page_config?.content
