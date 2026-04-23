@@ -9,7 +9,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { getSupabaseAdminClient } from '@/storage/database/supabase-client';
 
 @Controller('upload')
 export class UploadController {
@@ -41,7 +41,7 @@ export class UploadController {
       }
 
       const key = `banquets/${Date.now()}_${file.originalname}`;
-      const client = getSupabaseClient();
+      const client = getSupabaseAdminClient();
 
       // 上传到 Supabase Storage
       const { data, error } = await client.storage
@@ -90,7 +90,7 @@ export class UploadController {
   @UseInterceptors(FilesInterceptor('photos', 3))
   async uploadPhotos(@UploadedFiles() files: any[]) {
     try {
-      const client = getSupabaseClient();
+      const client = getSupabaseAdminClient();
       const uploadPromises = files.map(async (file) => {
         let fileBuffer: Buffer;
 
@@ -146,7 +146,7 @@ export class UploadController {
   @Get('url')
   async getImageUrl(@Query('key') key: string) {
     try {
-      const client = getSupabaseClient();
+      const client = getSupabaseAdminClient();
       const { data } = client.storage
         .from(this.bucketName)
         .getPublicUrl(key);
