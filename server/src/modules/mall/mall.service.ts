@@ -53,39 +53,51 @@ export class MallService {
     const from = limit ? 0 : (page - 1) * pageSize;
     const to = limit ? limit - 1 : from + pageSize - 1;
 
+    // 查询商品，关联 product_categories 获取分类名称
     let query = client
       .from('products')
-      .select('*', { count: 'exact' })
+      .select('*, product_categories!category_id(id, name, slug)', { count: 'exact' })
       .eq('status', 'active')
       .gt('stock', 0)
       .order('sold_count', { ascending: false })
       .range(from, to);
 
-    // 旧分类参数（保留兼容）
+    // 分类参数：先查 product_categories 表获取 category_id，再按 category_id 筛选
     if (category && category !== '全部') {
-      query = query.eq('category', category);
-    }
-
-    // 新场景分类参数
-    if (sceneCategory && sceneCategory !== 'all') {
-      query = query.eq('scene_category', sceneCategory);
-    }
-
-    // 价格档位参数
-    if (priceTier) {
-      query = query.eq('price_tier', priceTier);
+      // 查找匹配的分类
+      const { data: categories } = await client
+        .from('product_categories')
+        .select('id')
+        .eq('name', category);
+      
+      if (categories && categories.length > 0) {
+        const categoryIds = categories.map(c => c.id);
+        query = query.in('category_id', categoryIds);
+      } else {
+        // 分类不存在，返回空结果
+        return { products: [], total: 0, page, pageSize: effectiveLimit };
+      }
     }
 
     const { data, count, error } = await query;
 
     if (error) {
       this.logger.error('获取商品列表失败:', JSON.stringify(error, null, 2));
-      return { products: [], total: 0 };
+      return { products: [], total: 0, page, pageSize: effectiveLimit };
     }
 
+    // 将关联的分类名称映射为前端需要的 category 字段
+    const products = (data || []).map((item: any) => ({
+      ...item,
+      category: item.product_categories?.name || '',
+      image: item.image_url || '',
+    }));
+
     return {
-      products: data || [],
+      products,
       total: count || 0,
+      page,
+      pageSize: effectiveLimit,
     };
   }
 
