@@ -122,8 +122,7 @@ export class AuthGuard implements CanActivate {
         }
 
         // 如果不是简单格式，可能是JWT，交给JWT服务处理
-        // 这里返回null，让JWT服务处理
-        return null;
+        // 不再直接返回null，继续尝试其他方式
       }
     }
 
