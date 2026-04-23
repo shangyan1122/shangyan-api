@@ -48,33 +48,35 @@ export class MallService {
   ) {
     const client = getSupabaseClient();
 
-    // 如果指定了limit，则使用limit而不是分页
     const effectiveLimit = limit || pageSize;
     const from = limit ? 0 : (page - 1) * pageSize;
     const to = limit ? limit - 1 : from + pageSize - 1;
 
-    // 查询商品，关联 product_categories 获取分类名称
+    // 获取全部分类映射（用于将 category_id 映射为分类名）
+    const { data: allCategories } = await client
+      .from('product_categories')
+      .select('id, name, slug');
+    const categoryMap: Record<string, string> = {};
+    (allCategories || []).forEach((c: any) => {
+      categoryMap[c.id] = c.name;
+    });
+
     let query = client
       .from('products')
-      .select('*, product_categories!category_id(id, name, slug)', { count: 'exact' })
+      .select('*', { count: 'exact' })
       .eq('status', 'active')
       .gt('stock', 0)
       .order('sold_count', { ascending: false })
       .range(from, to);
 
-    // 分类参数：先查 product_categories 表获取 category_id，再按 category_id 筛选
+    // 分类筛选：按分类名查找对应的 category_id
     if (category && category !== '全部') {
-      // 查找匹配的分类
-      const { data: categories } = await client
-        .from('product_categories')
-        .select('id')
-        .eq('name', category);
-      
-      if (categories && categories.length > 0) {
-        const categoryIds = categories.map(c => c.id);
-        query = query.in('category_id', categoryIds);
+      const matchedCategory = (allCategories || []).find(
+        (c: any) => c.name === category || c.slug === category
+      );
+      if (matchedCategory) {
+        query = query.eq('category_id', matchedCategory.id);
       } else {
-        // 分类不存在，返回空结果
         return { products: [], total: 0, page, pageSize: effectiveLimit };
       }
     }
@@ -86,10 +88,10 @@ export class MallService {
       return { products: [], total: 0, page, pageSize: effectiveLimit };
     }
 
-    // 将关联的分类名称映射为前端需要的 category 字段
+    // 映射字段：category_id → category 名称，image_url → image
     const products = (data || []).map((item: any) => ({
       ...item,
-      category: item.product_categories?.name || '',
+      category: categoryMap[item.category_id] || '',
       image: item.image_url || '',
     }));
 
