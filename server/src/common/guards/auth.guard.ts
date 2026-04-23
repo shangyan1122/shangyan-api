@@ -116,9 +116,21 @@ export class AuthGuard implements CanActivate {
       if (token && token !== 'null' && token !== 'undefined') {
         // 尝试从简单token格式中提取 openid
         // 格式: token_{openid}_{timestamp}
-        const parts = token.split('_');
-        if (parts.length >= 2 && parts[1] && parts[0] === 'token') {
-          return parts[1];
+        // 注意：openid本身可能包含下划线，所以不能用split('_')简单分割
+        // 需要找到最后一个下划线+数字(timestamp)的位置来分离
+        if (token.startsWith('token_')) {
+          const withoutPrefix = token.substring(6); // 去掉 'token_' 前缀
+          // 找到最后一个下划线分隔的timestamp部分（纯数字）
+          const lastUnderscoreIdx = withoutPrefix.lastIndexOf('_');
+          if (lastUnderscoreIdx > 0) {
+            const possibleTimestamp = withoutPrefix.substring(lastUnderscoreIdx + 1);
+            if (/^\d+$/.test(possibleTimestamp)) {
+              const openid = withoutPrefix.substring(0, lastUnderscoreIdx);
+              if (openid && this.isValidOpenid(openid)) {
+                return openid;
+              }
+            }
+          }
         }
 
         // 如果不是简单格式，可能是JWT，交给JWT服务处理
