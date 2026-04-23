@@ -1,12 +1,14 @@
-import { Controller, Get, Query, Req, Logger, Post, Body } from '@nestjs/common';
+import { Controller, Get, Query, Req, Logger, Post, Body, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { UserService } from './user.service';
+import { AuthGuard, Public } from '@/common/guards/auth.guard';
 
 /**
  * 用户控制器
  * 处理用户相关的接口
  */
 @Controller('user')
+@UseGuards(AuthGuard)
 export class UserController {
   private readonly logger = new Logger(UserController.name);
 
@@ -18,7 +20,11 @@ export class UserController {
    */
   @Get('stats')
   async getUserStats(@Req() req: Request) {
-    const openid = req.user?.openid || 'test_openid_123';
+    const openid = req.user?.openid;
+
+    if (!openid) {
+      return { code: 401, message: '未登录', data: { totalBanquets: 0, totalGifts: 0, totalAmount: 0 } };
+    }
 
     this.logger.log(`获取用户统计: openid=${openid}`);
 
@@ -58,9 +64,13 @@ export class UserController {
     @Query('pageSize') pageSize: string = '20',
     @Req() req: Request
   ) {
-    const openid = req.user?.openid || 'test_openid_123';
+    const openid = req.user?.openid;
     const pageNum = parseInt(page) || 1;
     const pageSizeNum = Math.min(parseInt(pageSize) || 20, 100);
+
+    if (!openid) {
+      return { code: 401, message: '未登录', data: { records: [], total: 0, page: pageNum, pageSize: pageSizeNum } };
+    }
 
     this.logger.log(`获取礼账: openid=${openid}, page=${pageNum}, pageSize=${pageSizeNum}`);
 
@@ -92,7 +102,11 @@ export class UserController {
    */
   @Get('my-gifts')
   async getMyGifts(@Req() req: Request) {
-    const openid = req.user?.openid || 'test_guest_openid';
+    const openid = req.user?.openid;
+
+    if (!openid) {
+      return { code: 401, message: '未登录', data: [] };
+    }
 
     this.logger.log(`获取我的随礼记录: openid=${openid}`);
 

@@ -6,23 +6,15 @@ import {
   UploadedFiles,
   Get,
   Query,
+  Logger,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-import { S3Storage } from 'coze-coding-dev-sdk';
+import { getSupabaseClient } from '@/storage/database/supabase-client';
 
 @Controller('upload')
 export class UploadController {
-  private storage: S3Storage;
-
-  constructor() {
-    this.storage = new S3Storage({
-      endpointUrl: process.env.COZE_BUCKET_ENDPOINT_URL,
-      accessKey: '',
-      secretKey: '',
-      bucketName: process.env.COZE_BUCKET_NAME,
-      region: 'cn-beijing',
-    });
-  }
+  private readonly logger = new Logger(UploadController.name);
+  private readonly bucketName = 'shangyan-assets';
 
   /**
    * 上传单张图片
@@ -48,18 +40,28 @@ export class UploadController {
         };
       }
 
-      // 上传到对象存储
-      const key = await this.storage.uploadFile({
-        fileContent: fileBuffer,
-        fileName: `banquets/${Date.now()}_${file.originalname}`,
-        contentType: file.mimetype || 'image/jpeg',
-      });
+      const key = `banquets/${Date.now()}_${file.originalname}`;
+      const client = getSupabaseClient();
 
-      // 生成访问 URL（30天有效期）
-      const url = await this.storage.generatePresignedUrl({
-        key,
-        expireTime: 86400 * 30,
-      });
+      // 上传到 Supabase Storage
+      const { data, error } = await client.storage
+        .from(this.bucketName)
+        .upload(key, fileBuffer, {
+          contentType: file.mimetype || 'image/jpeg',
+          upsert: true,
+        });
+
+      if (error) {
+        this.logger.error(`上传图片失败: ${error.message}`);
+        return { code: 500, msg: '上传失败: ' + error.message, data: null };
+      }
+
+      // 获取公开访问 URL
+      const { data: urlData } = client.storage
+        .from(this.bucketName)
+        .getPublicUrl(key);
+
+      const url = urlData?.publicUrl || '';
 
       return {
         code: 200,
@@ -70,8 +72,8 @@ export class UploadController {
           filename: file.originalname,
         },
       };
-    } catch (error) {
-      console.error('上传图片失败:', error);
+    } catch (error: any) {
+      this.logger.error(`上传图片异常: ${error.message}`);
       return {
         code: 500,
         msg: '上传失败',
@@ -88,6 +90,7 @@ export class UploadController {
   @UseInterceptors(FilesInterceptor('photos', 3))
   async uploadPhotos(@UploadedFiles() files: any[]) {
     try {
+      const client = getSupabaseClient();
       const uploadPromises = files.map(async (file) => {
         let fileBuffer: Buffer;
 
@@ -100,18 +103,23 @@ export class UploadController {
           throw new Error(`文件 ${file.originalname} 无法读取`);
         }
 
-        const key = await this.storage.uploadFile({
-          fileContent: fileBuffer,
-          fileName: `banquets/${Date.now()}_${file.originalname}`,
-          contentType: file.mimetype || 'image/jpeg',
-        });
+        const key = `banquets/${Date.now()}_${file.originalname}`;
+        const { error } = await client.storage
+          .from(this.bucketName)
+          .upload(key, fileBuffer, {
+            contentType: file.mimetype || 'image/jpeg',
+            upsert: true,
+          });
 
-        const url = await this.storage.generatePresignedUrl({
-          key,
-          expireTime: 86400 * 30,
-        });
+        if (error) {
+          throw new Error(error.message);
+        }
 
-        return { key, url };
+        const { data: urlData } = client.storage
+          .from(this.bucketName)
+          .getPublicUrl(key);
+
+        return { key, url: urlData?.publicUrl || '' };
       });
 
       const results = await Promise.all(uploadPromises);
@@ -121,8 +129,8 @@ export class UploadController {
         msg: 'success',
         data: results.map((r) => r.url),
       };
-    } catch (error) {
-      console.error('批量上传照片失败:', error);
+    } catch (error: any) {
+      this.logger.error(`批量上传照片失败: ${error.message}`);
       return {
         code: 500,
         msg: '上传失败',
@@ -138,18 +146,18 @@ export class UploadController {
   @Get('url')
   async getImageUrl(@Query('key') key: string) {
     try {
-      const url = await this.storage.generatePresignedUrl({
-        key,
-        expireTime: 86400 * 30,
-      });
+      const client = getSupabaseClient();
+      const { data } = client.storage
+        .from(this.bucketName)
+        .getPublicUrl(key);
 
       return {
         code: 200,
         msg: 'success',
-        data: { url },
+        data: { url: data?.publicUrl || '' },
       };
-    } catch (error) {
-      console.error('获取图片URL失败:', error);
+    } catch (error: any) {
+      this.logger.error(`获取图片URL失败: ${error.message}`);
       return {
         code: 500,
         msg: '获取失败',
