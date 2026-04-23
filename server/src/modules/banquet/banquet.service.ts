@@ -66,6 +66,22 @@ export class BanquetService {
     let aiWelcomePage = '';
     let aiThankPage = '';
 
+    // 默认欢迎词和感谢词模板（AI服务不可用时使用）
+    const welcomeTemplates: Record<string, string> = {
+      '婚宴': '良缘天定，佳偶成双。诚挚邀请您拨冗出席，见证幸福时刻，共赴这场爱的盛宴！',
+      '回门': '归宁之喜，情暖人心。新婚燕尔携幸福归家，恭候亲友共叙温情！',
+      '生日': '岁月如歌，生辰如画。诚邀您齐聚一堂，共庆华诞，同享欢乐！',
+      '寿宴': '福如东海长流水，寿比南山不老松。恭祝寿星鹤寿添筹，阖家欢聚！',
+      '升学': '十年寒窗终如愿，一朝金榜题名时。诚邀您同庆升学之喜，共祝前程似锦！',
+      '乔迁': '乔迁之喜，紫气东来。新居落成，恭候高朋满座，共贺乔迁之喜！',
+      '满月': '喜得贵子，满月之庆。新生命降临，全家欢腾，诚邀您共庆满月之喜！',
+      '开锁': '开锁之喜，启智迎祥。少年立志，前程可期，恭候亲朋共贺成长！',
+      '百日': '百日之喜，长命百岁。宝宝百天，阖家欢乐，诚邀您共庆百日之喜！',
+      '开业': '开业大吉，财源广进。新店启幕，恭候四方宾客，共贺开张之喜！',
+    };
+    const defaultWelcome = welcomeTemplates[banquetData.type] || `欢迎莅临${banquetData.name}！`;
+    const defaultThank = `感谢您的到来与祝福，您的每一份心意都是我们珍贵的记忆。感恩有您！`;
+
     this.logger.log(`开始创建宴会: ${banquetData.name}, 类型: ${banquetData.type}`);
 
     // 获取主角照片
@@ -82,9 +98,12 @@ export class BanquetService {
         hostName: banquetData.hostName || banquetData.name?.split('的')[0] || '',
         photos: photos,
       });
-      if (welcomeResult && welcomeResult.data) {
-        aiWelcomePage = welcomeResult.data.welcome || '';
+      if (welcomeResult?.data?.welcome) {
+        aiWelcomePage = welcomeResult.data.welcome;
         this.logger.log(`欢迎词生成成功: ${aiWelcomePage}`);
+      } else {
+        aiWelcomePage = defaultWelcome;
+        this.logger.log(`AI欢迎词为空，使用默认模板: ${aiWelcomePage}`);
       }
 
       // 使用主角照片生成感谢词
@@ -95,14 +114,17 @@ export class BanquetService {
         hostName: banquetData.hostName || banquetData.name?.split('的')[0] || '',
         photos: photos,
       });
-      if (thanksResult && thanksResult.data) {
-        aiThankPage = thanksResult.data.thanks || '';
+      if (thanksResult?.data?.thanks) {
+        aiThankPage = thanksResult.data.thanks;
         this.logger.log(`感谢词生成成功: ${aiThankPage}`);
+      } else {
+        aiThankPage = defaultThank;
+        this.logger.log(`AI感谢词为空，使用默认模板: ${aiThankPage}`);
       }
     } catch (error: any) {
-      this.logger.warn(`AI内容生成失败: ${error.message}，使用默认内容`);
-      aiWelcomePage = `欢迎莅临${banquetData.name}！`;
-      aiThankPage = `感谢您参加${banquetData.name}！`;
+      this.logger.warn(`AI内容生成失败: ${error.message}，使用默认模板`);
+      aiWelcomePage = defaultWelcome;
+      aiThankPage = defaultThank;
     }
 
     // 映射前端字段到数据库列名
