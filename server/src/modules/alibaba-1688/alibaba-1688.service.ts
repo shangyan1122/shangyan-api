@@ -361,8 +361,8 @@ export class Alibaba1688Service {
       .from('guest_return_gifts')
       .update({
         alibaba_1688_order_id: mockAlibabaOrderId,
-        dropship_status: 'ordered',
-        dropship_ordered_at: new Date().toISOString(),
+        delivery_status: 'shipped',
+        shipped_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq('id', order.return_gift_id);

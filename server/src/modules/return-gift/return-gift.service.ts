@@ -1670,7 +1670,7 @@ export class ReturnGiftService {
           )
         `
         )
-        .eq('dropship_status', 'none')
+        .eq('delivery_status', 'pending')
         .eq('need_delivery', true)
         .not('recipient_name', 'is', null)
         .order('estimated_ship_time', { ascending: true });
