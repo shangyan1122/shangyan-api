@@ -1556,10 +1556,10 @@ export class ReturnGiftService {
       const { data: pendingOrders, error: queryError } = await supabase
         .from('guest_return_gifts')
         .select('*')
-        .eq('dropship_status', 'none') // 未发货状态
+        .eq('delivery_status', 'none') // 未发货状态
         .not('estimated_ship_time', 'is', null) // 有发货截止时间
         .lt('estimated_ship_time', now) // 已超过截止时间
-        .in('need_delivery', [true]); // 需要配送
+        .eq('mall_claim_type', 'delivery'); // 选择邮寄配送
 
       if (queryError) {
         this.logger.error('查询待发货订单失败:', queryError);
@@ -1578,9 +1578,7 @@ export class ReturnGiftService {
       const { data: updated, error: updateError } = await supabase
         .from('guest_return_gifts')
         .update({
-          dropship_status: 'shipped', // 标记为已发货
-          // 模拟平台代发，生成虚拟物流信息
-          alibaba_1688_order_id: `AUTO_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+          delivery_status: 'shipped', // 标记为已发货
           updated_at: autoShipTime,
         })
         .in(
@@ -1703,7 +1701,7 @@ export class ReturnGiftService {
       const now = new Date();
 
       // 1. 查询所有已领取商城礼品但未填写收货信息的订单
-      // 条件：need_delivery=true, recipient_name为空, delivery_reminder_sent=false 或 上次提醒超过24小时
+      // 条件：mall_claim_type='delivery', recipient_name为空
       const { data: pendingRecords, error: queryError } = await supabase
         .from('guest_return_gifts')
         .select(
@@ -1715,9 +1713,9 @@ export class ReturnGiftService {
           )
         `
         )
-        .eq('need_delivery', true)
+        .eq('mall_claim_type', 'delivery')
         .or(`recipient_name.is.null,recipient_phone.is.null,recipient_address.is.null`)
-        .order('claimed_at', { ascending: true });
+        .order('created_at', { ascending: true });
 
       if (queryError) {
         this.logger.error('查询未填写收货信息记录失败:', queryError);
@@ -1738,8 +1736,8 @@ export class ReturnGiftService {
       for (const record of pendingRecords) {
         const guestOpenid = record.gift_records?.guest_openid;
         const banquetName = record.gift_records?.banquets?.name || '宴会';
-        const productName = record.gift_ids?.[0]?.product_name || '商城礼品';
-        const claimedAt = record.claimed_at || record.created_at;
+        const productName = record.mall_product_name || '商城礼品';
+        const claimedAt = record.created_at;
 
         if (!guestOpenid) {
           this.logger.warn(`未找到嘉宾openid: recordId=${record.id}`);
@@ -1767,16 +1765,6 @@ export class ReturnGiftService {
         });
 
         if (result.success) {
-          // 更新提醒状态
-          await supabase
-            .from('guest_return_gifts')
-            .update({
-              delivery_reminder_sent: true,
-              delivery_reminder_count: (record.delivery_reminder_count || 0) + 1,
-              last_reminder_at: nowTimestamp,
-            })
-            .eq('id', record.id);
-
           sentCount++;
           this.logger.log(`提醒发送成功: openid=${guestOpenid}, recordId=${record.id}`);
         } else {
@@ -1816,14 +1804,14 @@ export class ReturnGiftService {
           )
         `
         )
-        .eq('need_delivery', true)
+        .eq('mall_claim_type', 'delivery')
         .or(`recipient_name.is.null,recipient_phone.is.null,recipient_address.is.null`);
 
       if (banquetId) {
         query = query.eq('gift_records.banquet_id', banquetId);
       }
 
-      const { data, error } = await query.order('claimed_at', { ascending: true });
+      const { data, error } = await query.order('created_at', { ascending: true });
 
       if (error) {
         throw error;

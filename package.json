@@ -1,1 +1,1 @@
-{"name":"shangyan-api-root","private":true,"dependencies":{}}
+{"name":"shangyan-api-root","private":true,"dependencies":{"pg":"^8.20.0"}}
