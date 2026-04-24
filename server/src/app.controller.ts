@@ -20,4 +20,12 @@ export class AppController {
       data: new Date().toISOString(),
     };
   }
+
+  @Get('api/health')
+  getApiHealth(): { status: string; data: string } {
+    return {
+      status: 'success',
+      data: new Date().toISOString(),
+    };
+  }
 }
