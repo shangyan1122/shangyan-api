@@ -91,6 +91,6 @@ async function bootstrap() {
       throw err;
     }
   }
-  console.log(`Application is running on: http://localhost:3000`);
+  console.log(`Application is running on: http://localhost:${port}`);
 }
 bootstrap();
