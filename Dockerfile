@@ -28,9 +28,12 @@ COPY server/database ./database
 # 复制后台管理页面
 COPY web-admin ./web-admin
 
-# 暴露端口
-EXPOSE 80
+# 暴露端口（与应用监听端口一致）
+EXPOSE 3000
 
-# 运行（强制监听80端口，兼容云托管健康检查）
-ENV PORT=80
+# 设置环境变量
+ENV PORT=3000
+ENV NODE_ENV=production
+
+# 运行
 CMD ["node", "dist/main"]
