@@ -34,8 +34,9 @@ async function bootstrap() {
   console.log('尚宴礼记 API 服务启动中...');
   console.log('NODE_ENV:', process.env.NODE_ENV);
   console.log('PORT:', process.env.PORT);
-  console.log('SUPABASE_URL:', process.env.SUPABASE_URL ? '已配置' : '❌ 未配置');
-  console.log('DATABASE_URL:', process.env.DATABASE_URL ? '已配置' : '❌ 未配置');
+  console.log('SUPABASE_URL:', process.env.SUPABASE_URL ? '✅ 已配置' : '⚠️ 未配置（将使用默认值）');
+  console.log('SUPABASE_ANON_KEY:', process.env.SUPABASE_ANON_KEY ? '✅ 已配置' : '⚠️ 未配置（将使用默认值）');
+  console.log('DATABASE_URL:', process.env.DATABASE_URL ? '✅ 已配置' : '⚠️ 未配置');
   console.log('='.repeat(60));
 
   // 初始化 Sentry 错误监控
@@ -74,6 +75,7 @@ async function bootstrap() {
     console.log('✅ 存储桶初始化完成');
   } catch (error) {
     console.warn('⚠️ 存储桶初始化失败，部分功能可能受限:', error.message);
+    console.warn('   应用将继续启动，但文件上传功能可能不可用。');
   }
 
   // 2. 解析端口
