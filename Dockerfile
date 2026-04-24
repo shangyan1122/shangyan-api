@@ -1,3 +1,4 @@
+# 构建时间: 2026-04-24 17:30:00 (强制重新构建)
 FROM node:20-alpine
 
 WORKDIR /app
