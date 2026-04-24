@@ -8,23 +8,28 @@ interface SupabaseCredentials {
 
 function getSupabaseCredentials(): SupabaseCredentials {
   // 优先使用标准 SUPABASE_ 变量，fallback 到 COZE_ 前缀变量
+  // 再 fallback 到硬编码的默认值（用于 Railway 部署调试）
   const url =
     process.env.SUPABASE_URL ||
-    process.env.COZE_SUPABASE_URL;
+    process.env.COZE_SUPABASE_URL ||
+    'https://qrkwbbphskndxzkfsfep.supabase.co'; // 默认值
 
   const anonKey =
     process.env.SUPABASE_ANON_KEY ||
-    process.env.COZE_SUPABASE_ANON_KEY;
+    process.env.COZE_SUPABASE_ANON_KEY ||
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFya3diYnBoc2tuZHh6a2ZzZmVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyODQ4NDgsImV4cCI6MjA5MDg2MDg0OH0.PZLu_w9Xq56_hu0ICzFtt0TdhCkAC78Uj3ANc3SgNwg'; // 默认值
 
   const serviceKey =
     process.env.SUPABASE_SERVICE_KEY ||
-    process.env.COZE_SUPABASE_SERVICE_KEY;
+    process.env.COZE_SUPABASE_SERVICE_KEY ||
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFya3diYnBoc2tuZHh6a2ZzZmVwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTI4NDg0OCwiZXhwIjoxMDkwODYwODQ4fQ.ARIUCnl7VF3z6UugczoptN-TThOoocikAXXeh0r_Iq8'; // 默认值
 
-  if (!url) {
-    throw new Error('SUPABASE_URL is not set');
+  // 不再抛出错误，只打印警告
+  if (!process.env.SUPABASE_URL && !process.env.COZE_SUPABASE_URL) {
+    console.warn('⚠️  SUPABASE_URL 环境变量未设置，使用默认值');
   }
-  if (!anonKey) {
-    throw new Error('SUPABASE_ANON_KEY is not set');
+  if (!process.env.SUPABASE_ANON_KEY && !process.env.COZE_SUPABASE_ANON_KEY) {
+    console.warn('⚠️  SUPABASE_ANON_KEY 环境变量未设置，使用默认值');
   }
 
   return { url, anonKey, serviceKey };
