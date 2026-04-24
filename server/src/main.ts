@@ -29,6 +29,15 @@ function parsePort(): number {
 }
 
 async function bootstrap() {
+  // 启动日志（用于调试 Railway 部署）
+  console.log('='.repeat(60));
+  console.log('尚宴礼记 API 服务启动中...');
+  console.log('NODE_ENV:', process.env.NODE_ENV);
+  console.log('PORT:', process.env.PORT);
+  console.log('SUPABASE_URL:', process.env.SUPABASE_URL ? '已配置' : '❌ 未配置');
+  console.log('DATABASE_URL:', process.env.DATABASE_URL ? '已配置' : '❌ 未配置');
+  console.log('='.repeat(60));
+
   // 初始化 Sentry 错误监控
   initSentry();
 
