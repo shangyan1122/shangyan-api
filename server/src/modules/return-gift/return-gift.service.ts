@@ -1705,7 +1705,7 @@ export class ReturnGiftService {
       // 1. 查询所有已领取商城礼品但未填写收货信息的订单
       // 条件：need_delivery=true, recipient_name为空, delivery_reminder_sent=false 或 上次提醒超过24小时
       const { data: pendingRecords, error: queryError } = await supabase
-        .from('return_gifts')
+        .from('guest_return_gifts')
         .select(
           `
           *,
@@ -1769,7 +1769,7 @@ export class ReturnGiftService {
         if (result.success) {
           // 更新提醒状态
           await supabase
-            .from('return_gifts')
+            .from('guest_return_gifts')
             .update({
               delivery_reminder_sent: true,
               delivery_reminder_count: (record.delivery_reminder_count || 0) + 1,
@@ -1806,7 +1806,7 @@ export class ReturnGiftService {
   async getPendingDeliveryRecords(banquetId?: string) {
     try {
       let query = supabase
-        .from('return_gifts')
+        .from('guest_return_gifts')
         .select(
           `
           *,
@@ -1853,7 +1853,7 @@ export class ReturnGiftService {
     try {
       // 1. 验证记录存在
       const { data: existing, error: queryError } = await supabase
-        .from('return_gifts')
+        .from('guest_return_gifts')
         .select('*')
         .eq('id', returnGiftId)
         .single();
@@ -1864,7 +1864,7 @@ export class ReturnGiftService {
 
       // 2. 更新收货信息
       const { data, error: updateError } = await supabase
-        .from('return_gifts')
+        .from('guest_return_gifts')
         .update({
           recipient_name: recipientName,
           recipient_phone: recipientPhone,
