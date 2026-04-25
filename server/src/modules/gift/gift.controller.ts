@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { GiftService } from './gift.service';
 import { ReferralService } from '../referral/referral.service';
