@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Put, Delete, Body, Query, Param } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Query, Param, UseGuards } from '@nestjs/common';
 import { Logger } from '@nestjs/common';
 import { AdminProductService, CreateProductParams } from './admin-product.service';
+import { AdminAuthGuard } from '@/common/guards/admin-auth.guard';
 
 /**
  * 管理后台商品控制器
@@ -11,6 +12,7 @@ import { AdminProductService, CreateProductParams } from './admin-product.servic
  * 3. 1688商品导入
  */
 @Controller('admin/products')
+@UseGuards(AdminAuthGuard)
 export class AdminProductController {
   private readonly logger = new Logger(AdminProductController.name);
 

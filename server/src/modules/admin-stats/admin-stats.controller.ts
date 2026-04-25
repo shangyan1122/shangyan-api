@@ -1,7 +1,9 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AdminStatsService } from './admin-stats.service';
+import { AdminAuthGuard } from '@/common/guards/admin-auth.guard';
 
 @Controller('admin/stats')
+@UseGuards(AdminAuthGuard)
 export class AdminStatsController {
   constructor(private readonly adminStatsService: AdminStatsService) {}
 

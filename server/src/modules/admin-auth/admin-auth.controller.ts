@@ -1,5 +1,6 @@
-import { Controller, Post, Get, Body, Headers, Logger } from '@nestjs/common';
+import { Controller, Post, Get, Body, Logger, UseGuards, Request } from '@nestjs/common';
 import { AdminAuthService } from './admin-auth.service';
+import { AdminAuthGuard } from '@/common/guards/admin-auth.guard';
 
 @Controller('admin/auth')
 export class AdminAuthController {
@@ -47,18 +48,8 @@ export class AdminAuthController {
    * 获取管理员信息
    */
   @Get('profile')
-  async getProfile(@Headers('authorization') auth: string) {
-    if (!auth || !auth.startsWith('Bearer ')) {
-      return { code: 401, msg: '未授权', data: null };
-    }
-
-    const token = auth.substring(7);
-    const decoded = this.adminAuthService.verifyToken(token);
-
-    if (!decoded) {
-      return { code: 401, msg: 'Token无效', data: null };
-    }
-
-    return this.adminAuthService.getProfile(decoded.id);
+  @UseGuards(AdminAuthGuard)
+  async getProfile(@Request() req: any) {
+    return this.adminAuthService.getProfile(req.admin.id);
   }
 }

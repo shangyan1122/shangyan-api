@@ -1,7 +1,9 @@
-import { Controller, Get, Post, Body, Param, Query, Logger } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, Logger, UseGuards } from '@nestjs/common';
 import { AdminOrderService } from './admin-order.service';
+import { AdminAuthGuard } from '@/common/guards/admin-auth.guard';
 
 @Controller('admin/orders')
+@UseGuards(AdminAuthGuard)
 export class AdminOrderController {
   private readonly logger = new Logger(AdminOrderController.name);
 

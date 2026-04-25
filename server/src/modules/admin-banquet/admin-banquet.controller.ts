@@ -1,7 +1,9 @@
-import { Controller, Get, Post, Delete, Param, Query, Logger } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Param, Query, Logger, UseGuards } from '@nestjs/common';
 import { AdminBanquetService } from './admin-banquet.service';
+import { AdminAuthGuard } from '@/common/guards/admin-auth.guard';
 
 @Controller('admin/banquets')
+@UseGuards(AdminAuthGuard)
 export class AdminBanquetController {
   private readonly logger = new Logger(AdminBanquetController.name);
 
