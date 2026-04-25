@@ -234,6 +234,46 @@ export class GiftController {
    * 删除补录记录
    * POST /api/gifts/supplement/delete
    */
+  /**
+   * 获取宴会的礼金记录
+   * GET /api/gifts/records
+   */
+  @Get('records')
+  async getGiftRecords(
+    @Query('banquetId') banquetId: string,
+    @Query('openid') openid: string,
+    @Req() req: Request
+  ) {
+    if (!banquetId) {
+      return {
+        code: 400,
+        message: '缺少banquetId参数',
+        data: null,
+      };
+    }
+
+    // 验证权限：只有主办方或宾客可以查看
+    const userOpenid = req.user?.openid || openid;
+    const isHost = await this.giftService.verifyHostPermission(banquetId, userOpenid);
+    const isGuest = await this.giftService.checkGuestExists(banquetId, userOpenid);
+
+    if (!isHost && !isGuest) {
+      return {
+        code: 403,
+        message: '无权限查看',
+        data: null,
+      };
+    }
+
+    const records = await this.giftService.getGiftRecords(banquetId);
+
+    return {
+      code: 200,
+      message: 'success',
+      data: { records },
+    };
+  }
+
   @Post('supplement/delete')
   async deleteSupplementRecord(
     @Body()

@@ -279,6 +279,23 @@ export class GiftService {
     return data || [];
   }
 
+  // 获取宴会的礼金记录
+  async getGiftRecords(banquetId: string) {
+    const client = getSupabaseClient();
+    const { data, error } = await client
+      .from('gift_records')
+      .select('*')
+      .eq('banquet_id', banquetId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('获取礼金记录失败:', error);
+      return [];
+    }
+
+    return data || [];
+  }
+
   // 删除补录记录
   async deleteSupplementRecord(recordId: string, hostOpenid: string) {
     const client = getSupabaseClient();
