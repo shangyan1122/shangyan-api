@@ -7,6 +7,7 @@ import { HttpStatusInterceptor } from '@/interceptors/http-status.interceptor';
 import { initializeStorageBuckets } from '@/storage';
 import { initSentry } from '@/common/sentry/sentry.config';
 import { SentryFilter } from '@/common/sentry/sentry.filter';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 function parsePort(): number {
   // 优先使用环境变量 PORT（CloudBase 等云平台使用）
@@ -71,6 +72,16 @@ async function bootstrap() {
 
   // 开启优雅关闭 Hooks (关键!)
   app.enableShutdownHooks();
+
+  // 配置 Swagger 文档
+  const config = new DocumentBuilder()
+    .setTitle('尚宴礼记 API')
+    .setDescription('尚宴礼记小程序后端API文档')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document);
 
   // 初始化存储桶
   try {
