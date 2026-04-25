@@ -1,6 +1,7 @@
-import { getSupabaseClient } from './database/supabase-client';
+import { getSupabaseClient, getSupabaseAdminClient } from './database/supabase-client';
 
-const supabase = getSupabaseClient();
+const supabase = getSupabaseClient(); // 普通客户端：用于上传/删除文件
+const supabaseAdmin = getSupabaseAdminClient(); // 管理员客户端：用于创建存储桶（绕过RLS）
 
 // 需要的存储桶列表
 const REQUIRED_BUCKETS = ['exports', 'banquets', 'avatars', 'gifts'];
@@ -21,11 +22,11 @@ export async function initializeStorageBuckets(): Promise<void> {
   for (const bucketName of REQUIRED_BUCKETS) {
     try {
       // 检查存储桶是否存在
-      const { data: bucket, error: getError } = await supabase.storage.getBucket(bucketName);
+      const { data: bucket, error: getError } = await supabaseAdmin.storage.getBucket(bucketName);
 
       if (getError || !bucket) {
-        // 创建存储桶
-        const { error: createError } = await supabase.storage.createBucket(bucketName, {
+        // 创建存储桶（使用管理员权限绕过RLS）
+        const { error: createError } = await supabaseAdmin.storage.createBucket(bucketName, {
           public: true,
           fileSizeLimit: 10485760, // 10MB
           allowedMimeTypes: [
@@ -81,10 +82,10 @@ export async function uploadToStorage(params: UploadParams): Promise<string> {
  * 确保存储桶存在
  */
 async function ensureBucketExists(bucketName: string): Promise<void> {
-  const { data: bucket, error } = await supabase.storage.getBucket(bucketName);
+  const { data: bucket, error } = await supabaseAdmin.storage.getBucket(bucketName);
 
   if (error || !bucket) {
-    const { error: createError } = await supabase.storage.createBucket(bucketName, {
+    const { error: createError } = await supabaseAdmin.storage.createBucket(bucketName, {
       public: true,
       fileSizeLimit: 10485760,
     });
