@@ -231,10 +231,6 @@ export class GiftController {
   }
 
   /**
-   * 删除补录记录
-   * POST /api/gifts/supplement/delete
-   */
-  /**
    * 获取宴会的礼金记录
    * GET /api/gifts/records
    */
@@ -274,6 +270,10 @@ export class GiftController {
     };
   }
 
+  /**
+   * 删除补录记录
+   * POST /api/gifts/supplement/delete
+   */
   @Post('supplement/delete')
   async deleteSupplementRecord(
     @Body()
