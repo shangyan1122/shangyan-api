@@ -18,6 +18,14 @@ export interface UploadParams {
  */
 export async function initializeStorageBuckets(): Promise<void> {
   console.log('正在初始化存储桶...');
+  
+  // 检查是否有Supabase凭证
+  const hasCredentials = process.env.SUPABASE_URL || process.env.COZE_SUPABASE_URL;
+  if (!hasCredentials) {
+    console.warn('⚠️ 未配置Supabase凭证，跳过存储桶初始化');
+    console.log('✅ 存储桶初始化完成（已跳过）');
+    return;
+  }
 
   for (const bucketName of REQUIRED_BUCKETS) {
     try {
@@ -40,17 +48,21 @@ export async function initializeStorageBuckets(): Promise<void> {
         });
 
         if (createError) {
-          console.error(`创建存储桶 ${bucketName} 失败:`, createError.message);
+          console.warn(`⚠️ 创建存储桶 ${bucketName} 失败:`, createError.message);
+          console.warn('存储功能可能不可用，但不影响其他功能');
         } else {
-          console.log(`存储桶 ${bucketName} 创建成功`);
+          console.log(`✅ 存储桶 ${bucketName} 创建成功`);
         }
       } else {
-        console.log(`存储桶 ${bucketName} 已存在`);
+        console.log(`✅ 存储桶 ${bucketName} 已存在`);
       }
     } catch (error) {
-      console.error(`初始化存储桶 ${bucketName} 异常:`, error);
+      console.warn(`⚠️ 初始化存储桶 ${bucketName} 异常:`, error.message);
+      console.warn('存储功能可能不可用，但不影响其他功能');
     }
   }
+  
+  console.log('✅ 存储桶初始化完成');
 }
 
 /**

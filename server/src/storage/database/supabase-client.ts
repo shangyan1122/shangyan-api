@@ -17,12 +17,12 @@ function getSupabaseCredentials(): SupabaseCredentials {
   const anonKey =
     process.env.SUPABASE_ANON_KEY ||
     process.env.COZE_SUPABASE_ANON_KEY ||
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFya3diYnBoc2tuZHh6a2ZzZmVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyODQ4NDgsImV4cCI6MjA5MDg2MDg0OH0.PZLu_w9Xq56_hu0ICzFtt0TdhCkAC78Uj3ANc3SgNwg'; // 默认值
+    ''; // 不再提供默认值，强制要求设置环境变量
 
   const serviceKey =
     process.env.SUPABASE_SERVICE_KEY ||
     process.env.COZE_SUPABASE_SERVICE_KEY ||
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFya3diYnBoc2tuZHh6a2ZzZmVwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTI4NDg0OCwiZXhwIjoxMDkwODYwODQ4fQ.ARIUCnl7VF3z6UugczoptN-TThOoocikAXXeh0r_Iq8'; // 默认值
+    ''; // 不再提供默认值，强制要求设置环境变量
 
   // 不再抛出错误，只打印警告
   if (!process.env.SUPABASE_URL && !process.env.COZE_SUPABASE_URL) {
