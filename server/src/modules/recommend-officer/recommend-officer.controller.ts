@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Put, Body, Query, Param, Request } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Query, Param, Request, UseGuards } from '@nestjs/common';
 import { RecommendOfficerService } from './recommend-officer.service';
+import { AdminAuthGuard } from '@/common/guards/admin-auth.guard';
 
 @Controller('recommend-officer')
 export class RecommendOfficerController {
@@ -68,14 +69,15 @@ export class RecommendOfficerController {
   }
 }
 
-@Controller('admin/recommend-officer')
+@Controller('admin/recommend-officers')
+@UseGuards(AdminAuthGuard)
 export class AdminRecommendOfficerController {
   constructor(private readonly service: RecommendOfficerService) {}
 
   /**
    * 获取推荐官列表
    */
-  @Get('list')
+  @Get()
   async getList(
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
@@ -91,23 +93,50 @@ export class AdminRecommendOfficerController {
   }
 
   /**
+   * 获取推荐官统计
+   */
+  @Get('stats')
+  async getStats() {
+    return this.service.getStats();
+  }
+
+  /**
+   * 获取推荐官排行榜
+   */
+  @Get('ranking')
+  async getRanking(@Query('period') period: string = 'all') {
+    return this.service.getRanking(period);
+  }
+
+  /**
    * 获取推荐官详情
    */
-  @Get('detail/:id')
+  @Get(':id')
   async getDetail(@Param('id') id: string) {
     return this.service.getDetail(id);
   }
 
   /**
+   * 审核推荐官
+   */
+  @Put(':id/audit')
+  async auditOfficer(
+    @Param('id') id: string,
+    @Body() body: { status: 'approved' | 'rejected'; remark?: string }
+  ) {
+    return this.service.auditOfficer(id, body.status, body.remark);
+  }
+
+  /**
    * 更新推荐官信息
    */
-  @Put('update/:id')
+  @Put(':id')
   async updateOfficer(
     @Param('id') id: string,
     @Body()
     body: {
-      vipCommissionRate?: number;
-      mallCommissionRate?: number;
+      vip_commission_rate?: number;
+      mall_commission_rate?: number;
       status?: string;
       remark?: string;
     }

@@ -557,6 +557,145 @@ export class RecommendOfficerService {
   }
 
   /**
+   * 后台：获取推荐官统计
+   */
+  async getStats(): Promise<{ code: number; msg: string; data?: any }> {
+    try {
+      const { data: officers, error } = await this.supabase
+        .from('recommend_officers')
+        .select('status');
+
+      if (error) {
+        this.logger.error('获取推荐官统计失败:', error);
+        return { code: 500, msg: '查询失败', data: null };
+      }
+
+      const stats = {
+        total: officers?.length || 0,
+        approved: officers?.filter((o: any) => o.status === 'approved').length || 0,
+        pending: officers?.filter((o: any) => o.status === 'pending').length || 0,
+        rejected: officers?.filter((o: any) => o.status === 'rejected').length || 0,
+      };
+
+      return { code: 200, msg: 'success', data: stats };
+    } catch (error) {
+      this.logger.error('获取推荐官统计异常:', error);
+      return { code: 500, msg: '查询失败', data: null };
+    }
+  }
+
+  /**
+   * 后台：获取推荐官排行榜
+   */
+  async getRanking(period: string = 'all'): Promise<{ code: number; msg: string; data?: any[] }> {
+    try {
+      let query = this.supabase
+        .from('recommend_officers')
+        .select('id, real_name, phone, total_commission, available_commission, total_invitees');
+
+      // 根据时间范围筛选
+      if (period === 'week') {
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        query = query.gte('created_at', weekAgo.toISOString());
+      } else if (period === 'month') {
+        const monthAgo = new Date();
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        query = query.gte('created_at', monthAgo.toISOString());
+      }
+
+      const { data: officers, error } = await query
+        .order('total_commission', { ascending: false })
+        .limit(20);
+
+      if (error) {
+        this.logger.error('获取推荐官排行榜失败:', error);
+        return { code: 500, msg: '查询失败', data: [] };
+      }
+
+      // 获取每个推荐官的本期佣金
+      const rankings = await Promise.all(
+        (officers || []).map(async (officer: any) => {
+          let periodCommission = 0;
+          
+          let commissionQuery = this.supabase
+            .from('officer_commissions')
+            .select('amount')
+            .eq('officer_id', officer.id);
+
+          if (period === 'week') {
+            const weekAgo = new Date();
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            commissionQuery = commissionQuery.gte('created_at', weekAgo.toISOString());
+          } else if (period === 'month') {
+            const monthAgo = new Date();
+            monthAgo.setMonth(monthAgo.getMonth() - 1);
+            commissionQuery = commissionQuery.gte('created_at', monthAgo.toISOString());
+          }
+
+          const { data: commissions } = await commissionQuery;
+          periodCommission = (commissions || []).reduce(
+            (sum: number, c: any) => sum + (c.amount || 0),
+            0
+          );
+
+          return {
+            id: officer.id,
+            real_name: officer.real_name,
+            phone: officer.phone,
+            total_commission: officer.total_commission || 0,
+            available_commission: officer.available_commission || 0,
+            total_invitees: officer.total_invitees || 0,
+            period_commission: periodCommission,
+          };
+        })
+      );
+
+      return { code: 200, msg: 'success', data: rankings };
+    } catch (error) {
+      this.logger.error('获取推荐官排行榜异常:', error);
+      return { code: 500, msg: '查询失败', data: [] };
+    }
+  }
+
+  /**
+   * 后台：审核推荐官
+   */
+  async auditOfficer(
+    officerId: string,
+    status: 'approved' | 'rejected',
+    remark?: string
+  ): Promise<{ code: number; msg: string }> {
+    try {
+      const updateData: any = {
+        status,
+        audited_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      if (remark !== undefined) {
+        updateData.audit_remark = remark;
+      }
+
+      const { error } = await this.supabase
+        .from('recommend_officers')
+        .update(updateData)
+        .eq('id', officerId);
+
+      if (error) {
+        this.logger.error('审核推荐官失败:', error);
+        return { code: 500, msg: '审核失败' };
+      }
+
+      this.logger.log(`审核推荐官 ${officerId}: ${status}`);
+      return { code: 200, msg: '审核成功' };
+    } catch (error) {
+      this.logger.error('审核推荐官异常:', error);
+      return { code: 500, msg: '审核失败' };
+    }
+  }
+
+  /**
    * 后台：获取推荐官详情
    */
   async getDetail(officerId: string): Promise<{ code: number; msg: string; data?: any }> {

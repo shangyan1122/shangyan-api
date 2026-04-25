@@ -4,8 +4,10 @@ import {
   RecommendOfficerController,
   AdminRecommendOfficerController,
 } from './recommend-officer.controller';
+import { AdminAuthModule } from '@/modules/admin-auth/admin-auth.module';
 
 @Module({
+  imports: [AdminAuthModule],
   controllers: [RecommendOfficerController, AdminRecommendOfficerController],
   providers: [RecommendOfficerService],
   exports: [RecommendOfficerService],
