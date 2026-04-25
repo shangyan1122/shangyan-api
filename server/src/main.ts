@@ -44,9 +44,12 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule);
 
+  // CORS 配置：允许所有来源访问（开发环境）
   app.enableCors({
-    origin: true,
-    credentials: true,
+    origin: '*',
+    credentials: false, // 当 origin 为 '*' 时，credentials 必须为 false
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   // 静态文件服务 - Web 管理后台（必须在 setGlobalPrefix 之前配置，避免被 api 前缀覆盖）
