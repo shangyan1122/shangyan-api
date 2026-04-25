@@ -1,4 +1,4 @@
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Logger } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Logger, Inject } from '@nestjs/common';
 import { Request } from 'express';
 import { AdminAuthService } from '@/modules/admin-auth/admin-auth.service';
 
@@ -11,7 +11,7 @@ export class AdminAuthGuard implements CanActivate {
   private readonly logger = new Logger(AdminAuthGuard.name);
 
   constructor(
-    private adminAuthService: AdminAuthService
+    @Inject(AdminAuthService) private adminAuthService: AdminAuthService
   ) {}
 
   canActivate(context: ExecutionContext): boolean {
