@@ -27,6 +27,7 @@
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^10.4.15",
     "@nestjs/schedule": "^6.1.1",
+    "@nestjs/swagger": "^11.4.1",
     "@sentry/nestjs": "^10.47.0",
     "@sentry/react": "^10.47.0",
     "@supabase/supabase-js": "2.95.3",
