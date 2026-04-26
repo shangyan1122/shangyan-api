@@ -4,7 +4,7 @@ dockerfilePath = "Dockerfile"
 
 [deploy]
 startCommand = "node dist/main"
-branches = ["main"]
+branches = ["main"]  # 限制只从 main 分支部署（2026-04-26 更新）
 healthcheckPath = "/api/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
