@@ -6,8 +6,9 @@ WORKDIR /app
 # 安装 pnpm 和构建依赖
 RUN npm install -g pnpm && apk add --no-cache python3 make g++
 
-# 复制 package 文件并安装所有依赖
+# 复制 package 文件和 lockfile 并安装所有依赖
 COPY server/package*.json ./
+COPY server/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
 # 复制源代码并构建
