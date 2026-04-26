@@ -10,7 +10,7 @@ import { SentryFilter } from '@/common/sentry/sentry.filter';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 function parsePort(): number {
-  // 优先使用环境变量 PORT（CloudBase 等云平台使用）
+  // 优先使用环境变量 PORT（Railway 等云平台使用）
   if (process.env.PORT) {
     const port = parseInt(process.env.PORT, 10);
     if (!isNaN(port) && port > 0 && port < 65536) {
