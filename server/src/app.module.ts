@@ -3,6 +3,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from '@/app.controller';
 import { AppService } from '@/app.service';
 import { CommonModule } from '@/common/common.module';
+import { HealthModule } from '@/health/health.module';
 import { AuthModule } from '@/modules/auth/auth.module';
 import { BanquetModule } from '@/modules/banquet/banquet.module';
 import { UploadModule } from '@/modules/upload/upload.module';
@@ -42,6 +43,7 @@ import { AdminStatsModule } from '@/modules/admin-stats/admin-stats.module';
 @Module({
   imports: [
     ScheduleModule.forRoot(),
+    HealthModule,
     CommonModule,
     AuthModule,
     BanquetModule,

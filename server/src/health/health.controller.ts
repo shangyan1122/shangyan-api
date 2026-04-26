@@ -1,0 +1,14 @@
+import { Controller, Get, HttpCode } from '@nestjs/common';
+
+@Controller('api/health')
+export class HealthController {
+  @Get()
+  @HttpCode(200)
+  check() {
+    return {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      service: 'shangyan-api',
+    };
+  }
+}
