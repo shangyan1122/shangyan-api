@@ -1,6 +1,6 @@
 import { Controller, Get, HttpCode } from '@nestjs/common';
 
-@Controller('api/health')
+@Controller('health')
 export class HealthController {
   @Get()
   @HttpCode(200)
