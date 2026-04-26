@@ -3,12 +3,12 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# 安装构建依赖（Alpine 需要 python3/make/g++ 编译 native 模块）
-RUN apk add --no-cache python3 make g++
+# 安装 pnpm 和构建依赖
+RUN npm install -g pnpm && apk add --no-cache python3 make g++
 
 # 复制 package 文件并安装所有依赖
 COPY server/package*.json ./
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
 # 复制源代码并构建
 COPY server/tsconfig*.json ./
