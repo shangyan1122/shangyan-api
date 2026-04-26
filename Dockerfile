@@ -19,17 +19,18 @@ RUN npm run build
 # 移除开发依赖
 RUN npm prune --omit=dev
 
-# 复制微信支付证书（如果存在）
-COPY server/certs ./certs 2>/dev/null || true
+# 复制微信支付证书（如不存在则构建继续）
+# 注意：COPY 不支持 shell 重定向，需确保文件存在或使用 .dockerignore
+COPY server/certs ./certs
 
-# 复制数据库初始化脚本（如果存在）
-COPY server/database ./database 2>/dev/null || true
+# 复制数据库初始化脚本
+COPY server/database ./database
 
-# 复制后台管理页面（如果存在）
-COPY web-admin ./web-admin 2>/dev/null || true
+# 复制后台管理页面
+COPY web-admin ./web-admin
 
 # 暴露端口（与应用监听端口一致）
-EXPOSE 3000
+EXOSE 3000
 
 # 设置环境变量
 ENV PORT=3000
