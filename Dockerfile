@@ -30,7 +30,7 @@ COPY server/database ./database
 COPY web-admin ./web-admin
 
 # 暴露端口（与应用监听端口一致）
-EXOSE 3000
+EXPOSE 3000
 
 # 设置环境变量
 ENV PORT=3000
