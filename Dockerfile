@@ -17,8 +17,8 @@ COPY server/nest-cli.json ./
 COPY server/src ./src
 RUN npm run build
 
-# 移除开发依赖
-RUN npm prune --omit=dev
+# 移除开发依赖（使用 pnpm）
+RUN pnpm install --prod --frozen-lockfile
 
 # 复制微信支付证书（如不存在则构建继续）
 # 注意：COPY 不支持 shell 重定向，需确保文件存在或使用 .dockerignore
