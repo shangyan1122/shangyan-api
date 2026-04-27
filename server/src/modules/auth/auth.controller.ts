@@ -1,12 +1,12 @@
-import { Controller, Post, Body, Get, Query, Logger, UseGuards } from '@nestjs/common';
-import { Request } from 'express';
-import { WechatConfigService } from '@/common/services/wechat-config.service';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { Public } from '@/common/guards/auth.guard';
+import { Controller, Post, Body, Get, Query, Logger, UseGuards } from '@nestjs/common'
+import { Request } from 'express'
+import { WechatConfigService } from '@/common/services/wechat-config.service'
+import { getSupabaseClient } from '@/storage/database/supabase-client'
+import { Public } from '@/common/guards/auth.guard'
 
 @Controller('auth')
 export class AuthController {
-  private readonly logger = new Logger(AuthController.name);
+  private readonly logger = new Logger(AuthController.name)
 
   constructor(private readonly wechatConfigService: WechatConfigService) {}
 
@@ -17,56 +17,75 @@ export class AuthController {
   @Post('login')
   @Public()
   async login(@Body() body: { code: string }) {
-    const { code } = body;
+    const { code } = body
 
     if (!code) {
       return {
         code: 400,
         msg: '缺少登录凭证',
-        data: null,
-      };
+        data: null
+      }
     }
 
-    this.logger.log(`微信登录: code=${code}`);
+    this.logger.log(`微信登录: code=${code}`)
 
     try {
       // 1. 调用微信接口获取 openid 和 session_key
-      const { openid, sessionKey } = await this.wechatConfigService.login(code);
+      const { openid, sessionKey } = await this.wechatConfigService.login(code)
 
-      this.logger.log(`微信登录成功: openid=${openid}`);
+      this.logger.log(`微信登录成功: openid=${openid}`)
 
       // 2. 查询或创建用户
-      const client = getSupabaseClient();
+      const client = getSupabaseClient()
       let { data: user, error } = await client
         .from('users')
         .select('*')
         .eq('openid', openid)
-        .single();
+        .single()
 
       if (!user) {
-        // 创建新用户
+        // 创建新用户 - 使用最小化字段，避免数据库表结构问题
         const { data: newUser, error: createError } = await client
           .from('users')
           .insert({
             openid,
-            nickname: '新用户',
+            nickname: '新用户'
           })
           .select()
-          .single();
+          .single()
 
         if (createError) {
-          this.logger.error('创建用户失败:', createError);
-          return {
-            code: 500,
-            msg: '创建用户失败',
-            data: null,
-          };
+          this.logger.error('创建用户失败:', createError)
+          // 如果创建失败，但已经有用户了（并发问题），再查询一次
+          if (createError.code === '23505') { // 唯一性冲突
+            const { data: existingUser } = await client
+              .from('users')
+              .select('*')
+              .eq('openid', openid)
+              .single()
+            if (existingUser) {
+              user = existingUser
+            } else {
+              return {
+                code: 500,
+                msg: '创建用户失败',
+                data: null
+              }
+            }
+          } else {
+            return {
+              code: 500,
+              msg: '创建用户失败',
+              data: null
+            }
+          }
+        } else {
+          user = newUser
         }
-        user = newUser;
       }
 
       // 3. 生成 token（实际项目应该使用 JWT）
-      const token = `token_${openid}_${Date.now()}`;
+      const token = `token_${openid}_${Date.now()}`
 
       return {
         code: 200,
@@ -75,22 +94,22 @@ export class AuthController {
           openid,
           token,
           userInfo: {
-            id: user.id,
-            nickname: user.nickname || '用户',
-            avatar: user.avatar_url || '', // 使用数据库中的 avatar_url 字段
-            phone: user.phone || '',
-            isVip: false, // users 表暂无此字段，默认为 false
-            vipExpireDate: '', // users 表暂无此字段
-          },
-        },
-      };
+            id: user?.id,
+            nickname: user?.nickname || '用户',
+            avatar: user?.avatar || '',
+            phone: user?.phone || '',
+            isVip: user?.is_vip || false,
+            vipExpireDate: user?.vip_expire_date || ''
+          }
+        }
+      }
     } catch (error: any) {
-      this.logger.error(`微信登录失败: ${error.message}`);
+      this.logger.error(`微信登录失败: ${error.message}`)
       return {
         code: 500,
         msg: error.message || '登录失败',
-        data: null,
-      };
+        data: null
+      }
     }
   }
 
@@ -100,37 +119,41 @@ export class AuthController {
   @Post('guest')
   @Public()
   async guestLogin(@Body() body: { openid: string }) {
-    const { openid } = body;
+    const { openid } = body
 
     if (!openid) {
       return {
         code: 400,
         msg: '缺少 openid',
-        data: null,
-      };
+        data: null
+      }
     }
 
-    this.logger.log(`游客登录: openid=${openid}`);
+    this.logger.log(`游客登录: openid=${openid}`)
 
     try {
-      const client = getSupabaseClient();
+      const client = getSupabaseClient()
 
       // 查询或创建用户
-      let { data: user } = await client.from('users').select('*').eq('openid', openid).single();
+      let { data: user } = await client
+        .from('users')
+        .select('*')
+        .eq('openid', openid)
+        .single()
 
       if (!user) {
         const { data: newUser } = await client
           .from('users')
           .insert({
             openid,
-            nickname: '游客用户',
+            nickname: '游客用户'
           })
           .select()
-          .single();
-        user = newUser;
+          .single()
+        user = newUser
       }
 
-      const token = `token_${openid}_${Date.now()}`;
+      const token = `token_${openid}_${Date.now()}`
 
       return {
         code: 200,
@@ -141,20 +164,20 @@ export class AuthController {
           userInfo: {
             id: user?.id,
             nickname: user?.nickname || '游客用户',
-            avatar: user?.avatar_url || '', // 使用数据库中的 avatar_url 字段
+            avatar: user?.avatar || '',
             phone: user?.phone || '',
-            isVip: false, // users 表暂无此字段，默认为 false
-            vipExpireDate: '', // users 表暂无此字段
-          },
-        },
-      };
+            isVip: user?.is_vip || false,
+            vipExpireDate: user?.vip_expire_date || ''
+          }
+        }
+      }
     } catch (error: any) {
-      this.logger.error(`游客登录失败: ${error.message}`);
+      this.logger.error(`游客登录失败: ${error.message}`)
       return {
         code: 500,
         msg: '登录失败',
-        data: null,
-      };
+        data: null
+      }
     }
   }
 
@@ -167,24 +190,24 @@ export class AuthController {
       return {
         code: 401,
         msg: '未登录',
-        data: null,
-      };
+        data: null
+      }
     }
 
     try {
-      const client = getSupabaseClient();
+      const client = getSupabaseClient()
       const { data: user, error } = await client
         .from('users')
         .select('*')
         .eq('openid', openid)
-        .single();
+        .single()
 
       if (error || !user) {
         return {
           code: 404,
           msg: '用户不存在',
-          data: null,
-        };
+          data: null
+        }
       }
 
       return {
@@ -194,19 +217,19 @@ export class AuthController {
           id: user.id,
           openid: user.openid,
           nickname: user.nickname,
-          avatar: user.avatar_url || '',
-          phone: user.phone || '',
-          isVip: false, // users 表暂无此字段
-          vipExpireDate: '', // users 表暂无此字段
-        },
-      };
+          avatar: user.avatar,
+          phone: user.phone,
+          isVip: user.is_vip,
+          vipExpireDate: user.vip_expire_date
+        }
+      }
     } catch (error: any) {
-      this.logger.error(`获取用户信息失败: ${error.message}`);
+      this.logger.error(`获取用户信息失败: ${error.message}`)
       return {
         code: 500,
         msg: '获取用户信息失败',
-        data: null,
-      };
+        data: null
+      }
     }
   }
 
@@ -215,41 +238,44 @@ export class AuthController {
    */
   @Post('update-profile')
   async updateProfile(@Body() body: { openid: string; nickname?: string; avatar?: string }) {
-    const { openid, nickname, avatar } = body;
+    const { openid, nickname, avatar } = body
 
     if (!openid) {
       return {
         code: 401,
         msg: '未登录',
-        data: null,
-      };
+        data: null
+      }
     }
 
     try {
-      const client = getSupabaseClient();
+      const client = getSupabaseClient()
+      
+      const updateData: any = { updated_at: new Date().toISOString() }
+      if (nickname) updateData.nickname = nickname
+      if (avatar) updateData.avatar = avatar
 
-      const updateData: any = { updated_at: new Date().toISOString() };
-      if (nickname) updateData.nickname = nickname;
-      if (avatar) updateData.avatar_url = avatar; // 使用数据库中的 avatar_url 字段
-
-      const { error } = await client.from('users').update(updateData).eq('openid', openid);
+      const { error } = await client
+        .from('users')
+        .update(updateData)
+        .eq('openid', openid)
 
       if (error) {
-        throw new Error(error.message);
+        throw new Error(error.message)
       }
 
       return {
         code: 200,
         msg: '更新成功',
-        data: null,
-      };
+        data: null
+      }
     } catch (error: any) {
-      this.logger.error(`更新用户信息失败: ${error.message}`);
+      this.logger.error(`更新用户信息失败: ${error.message}`)
       return {
         code: 500,
         msg: '更新失败',
-        data: null,
-      };
+        data: null
+      }
     }
   }
 
@@ -262,30 +288,59 @@ export class AuthController {
       return {
         code: 401,
         msg: '未登录',
-        data: { isLogin: false },
-      };
+        data: { isLogin: false }
+      }
     }
 
     try {
-      const client = getSupabaseClient();
-      const { data: user } = await client.from('users').select('id').eq('openid', openid).single();
+      const client = getSupabaseClient()
+      const { data: user } = await client
+        .from('users')
+        .select('id')
+        .eq('openid', openid)
+        .single()
 
       return {
         code: 200,
         msg: 'success',
         data: {
           isLogin: !!user,
-          openid,
-        },
-      };
+          openid
+        }
+      }
     } catch {
       return {
         code: 200,
         msg: 'success',
         data: {
-          isLogin: false,
-        },
-      };
+          isLogin: false
+        }
+      }
+    }
+  }
+
+  /**
+   * 获取服务器当前日期（YYYY-MM-DD 格式）
+   * 用于解决客户端时间不准确的问题
+   */
+  @Public()
+  @Get('server-date')
+  async getServerDate() {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const serverDate = `${year}-${month}-${day}`
+
+    this.logger.log(`服务器当前日期: ${serverDate}`)
+
+    return {
+      code: 200,
+      msg: 'success',
+      data: {
+        serverDate,
+        timestamp: now.getTime()
+      }
     }
   }
 }

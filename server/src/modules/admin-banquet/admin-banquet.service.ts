@@ -1,153 +1,197 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { Injectable, Logger } from '@nestjs/common'
+import { getSupabaseClient } from '@/storage/database/supabase-client'
 
 @Injectable()
 export class AdminBanquetService {
-  private readonly logger = new Logger(AdminBanquetService.name);
+  private readonly logger = new Logger(AdminBanquetService.name)
 
   /**
    * 获取宴会列表
    */
   async getBanquets(params: {
-    page?: number;
-    pageSize?: number;
-    type?: string;
-    status?: string;
-    search?: string;
-  }): Promise<{
-    code: number;
-    msg: string;
-    data: { list: any[]; total: number; page: number; pageSize: number };
-  }> {
-    const { page = 1, pageSize = 10, type, status, search } = params;
+    page?: number
+    pageSize?: number
+    type?: string
+    status?: string
+    search?: string
+  }): Promise<{ code: number; msg: string; data: { list: any[]; total: number; page: number; pageSize: number } }> {
+    const { page = 1, pageSize = 10, type, status, search } = params
 
-    const client = getSupabaseClient();
+    const client = getSupabaseClient()
 
-    let query = client.from('banquets').select('*', { count: 'exact' });
+    let query = client
+      .from('banquets')
+      .select('*', { count: 'exact' })
 
     // 类型筛选
     if (type && type !== 'all') {
-      query = query.eq('banquet_type', type);
+      query = query.eq('type', type)
     }
 
     // 状态筛选
     if (status) {
-      const now = new Date().toISOString();
+      const now = new Date().toISOString()
       if (status === 'upcoming') {
-        query = query.gt('event_time', now);
+        query = query.gt('event_time', now)
       } else if (status === 'active') {
-        query = query.lte('event_time', now);
+        query = query.lte('event_time', now)
       } else if (status === 'ended') {
-        query = query.lt('event_time', now);
+        query = query.lt('event_time', now)
       }
     }
 
-    // 搜索
+    // 搜索（按宴会名称和主办方openid模糊匹配）
     if (search) {
-      query = query.or(`name.ilike.%${search}%,host_name.ilike.%${search}%`);
+      query = query.or(`name.ilike.%${search}%,host_openid.ilike.%${search}%`)
     }
 
     // 分页
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-    query = query.range(from, to).order('created_at', { ascending: false });
+    const from = (page - 1) * pageSize
+    const to = from + pageSize - 1
+    query = query.range(from, to).order('created_at', { ascending: false })
 
-    const { data: banquets, error, count } = await query;
+    const { data: banquets, error, count } = await query
 
     if (error) {
-      this.logger.error(`查询宴会失败: ${error.message}`);
-      return { code: 500, msg: '查询失败', data: { list: [], total: 0, page, pageSize } };
+      this.logger.error(`查询宴会失败: ${error.message}`)
+      return { code: 500, msg: '查询失败', data: { list: [], total: 0, page, pageSize } }
     }
 
     // 计算宴会状态
-    const now = new Date();
-    const list = (banquets || []).map((banquet) => {
-      const eventTime = new Date(banquet.event_time);
-      let banquetStatus: 'upcoming' | 'active' | 'ended' = 'ended';
-
+    const now = new Date()
+    const list = (banquets || []).map(banquet => {
+      const eventTime = new Date(banquet.event_time)
+      let banquetStatus: 'upcoming' | 'active' | 'ended' = 'ended'
+      
       if (eventTime > now) {
         // 未来7天内算未开始
-        const daysDiff = (eventTime.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-        banquetStatus = daysDiff > 7 ? 'upcoming' : 'active';
+        const daysDiff = (eventTime.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+        banquetStatus = daysDiff > 7 ? 'upcoming' : 'active'
       } else {
         // 宴会时间已过算结束
-        banquetStatus = 'ended';
+        banquetStatus = 'ended'
       }
 
       return {
         id: banquet.id,
         name: banquet.name,
-        type: banquet.banquet_type,
-        hostName: banquet.host_name,
+        type: banquet.type,
         hostOpenid: banquet.host_openid,
         eventTime: banquet.event_time,
         location: banquet.location,
-        guestCount: banquet.guest_count || 0,
-        totalAmount: banquet.total_gift_amount || 0,
+        guestCount: 0,
+        totalAmount: 0,
         status: banquetStatus,
         qrCode: banquet.qr_code,
-        createdAt: banquet.created_at,
-      };
-    });
+        createdAt: banquet.created_at
+      }
+    })
 
-    // 如果有状态筛选
-    if (status && status !== list.map((l) => l.status)[0]) {
-      // 进一步筛选
+    // 状态筛选：在内存中过滤
+    let filteredList = list
+    if (status && status !== 'all') {
+      filteredList = list.filter(l => l.status === status)
     }
 
     return {
       code: 200,
       msg: 'success',
-      data: { list, total: count || 0, page, pageSize },
-    };
+      data: { list: filteredList, total: count || 0, page, pageSize }
+    }
   }
 
   /**
    * 获取宴会详情
    */
   async getBanquetDetail(banquetId: string): Promise<{ code: number; msg: string; data: any }> {
-    const client = getSupabaseClient();
+    const client = getSupabaseClient()
 
     const { data: banquet, error } = await client
       .from('banquets')
       .select('*')
       .eq('id', banquetId)
-      .single();
+      .single()
 
     if (error || !banquet) {
-      return { code: 404, msg: '宴会不存在', data: null };
+      return { code: 404, msg: '宴会不存在', data: null }
     }
 
     // 获取宾客列表
     const { data: gifts } = await client
       .from('gift_records')
       .select('*')
-      .eq('banquet_id', banquetId);
+      .eq('banquet_id', banquetId)
 
     return {
       code: 200,
       msg: 'success',
       data: {
         ...banquet,
-        gifts: gifts || [],
-      },
-    };
+        gifts: gifts || []
+      }
+    }
   }
 
   /**
    * 删除宴会
    */
   async deleteBanquet(banquetId: string): Promise<{ code: number; msg: string; data: null }> {
-    const client = getSupabaseClient();
+    const client = getSupabaseClient()
 
-    const { error } = await client.from('banquets').delete().eq('id', banquetId);
+    const { error } = await client
+      .from('banquets')
+      .delete()
+      .eq('id', banquetId)
 
     if (error) {
-      this.logger.error(`删除宴会失败: ${error.message}`);
-      return { code: 500, msg: '删除失败', data: null };
+      this.logger.error(`删除宴会失败: ${error.message}`)
+      return { code: 500, msg: '删除失败', data: null }
     }
 
-    this.logger.log(`删除宴会成功: banquetId=${banquetId}`);
-    return { code: 200, msg: '删除成功', data: null };
+    this.logger.log(`删除宴会成功: banquetId=${banquetId}`)
+    return { code: 200, msg: '删除成功', data: null }
+  }
+
+  /**
+   * 审核宴会
+   */
+  async auditBanquet(banquetId: string, body: { status: 'approved' | 'rejected'; remark?: string }): Promise<{ code: number; msg: string; data: null }> {
+    const client = getSupabaseClient()
+
+    // 首先检查宴会是否存在
+    const { data: banquet, error: checkError } = await client
+      .from('banquets')
+      .select('*')
+      .eq('id', banquetId)
+      .single()
+
+    if (checkError || !banquet) {
+      return { code: 404, msg: '宴会不存在', data: null }
+    }
+
+    // 检查宴会状态，只允许审核 pending 状态的宴会
+    if (banquet.audit_status && banquet.audit_status !== 'pending') {
+      return { code: 400, msg: '宴会已审核，无法重复审核', data: null }
+    }
+
+    // 更新宴会审核状态
+    const updateData: any = {
+      audit_status: body.status,
+      audit_remark: body.remark,
+      audit_time: new Date().toISOString()
+    }
+
+    const { error: updateError } = await client
+      .from('banquets')
+      .update(updateData)
+      .eq('id', banquetId)
+
+    if (updateError) {
+      this.logger.error(`审核宴会失败: ${updateError.message}`)
+      return { code: 500, msg: '审核失败', data: null }
+    }
+
+    this.logger.log(`审核宴会成功: banquetId=${banquetId}, status=${body.status}`)
+    return { code: 200, msg: body.status === 'approved' ? '审核通过' : '审核拒绝', data: null }
   }
 }

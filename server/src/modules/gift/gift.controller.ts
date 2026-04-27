@@ -1,8 +1,8 @@
-import { Controller, Get, Post, Body, Param, Query, Req, UseGuards } from '@nestjs/common';
-import { Request } from 'express';
-import { GiftService } from './gift.service';
-import { ReferralService } from '../referral/referral.service';
-import { AuthGuard } from '@/common/guards/auth.guard';
+import { Controller, Get, Post, Body, Param, Req, UseGuards } from '@nestjs/common'
+import { Request } from 'express'
+import { GiftService } from './gift.service'
+import { ReferralService } from '../referral/referral.service'
+import { AuthGuard } from '@/common/guards/auth.guard'
 
 @Controller('gifts')
 @UseGuards(AuthGuard)
@@ -14,26 +14,32 @@ export class GiftController {
 
   @Post('check')
   async checkGuest(@Body() body: { banquetId: string; guestOpenid: string }) {
-    const exists = await this.giftService.checkGuestExists(body.banquetId, body.guestOpenid);
-
+    const exists = await this.giftService.checkGuestExists(
+      body.banquetId,
+      body.guestOpenid
+    )
+    
     return {
       code: 200,
       message: 'success',
-      data: { exists },
-    };
+      data: { exists }
+    }
   }
 
   @Post('create')
   async createGiftRecord(@Body() body: any) {
     // 检查是否已随礼
-    const exists = await this.giftService.checkGuestExists(body.banquetId, body.guestOpenid);
-
+    const exists = await this.giftService.checkGuestExists(
+      body.banquetId,
+      body.guestOpenid
+    )
+    
     if (exists) {
       return {
         code: 400,
         message: '您已经随礼过了',
-        data: null,
-      };
+        data: null
+      }
     }
 
     const data = await this.giftService.createGiftRecord({
@@ -42,76 +48,78 @@ export class GiftController {
       guest_name: body.guestName,
       amount: body.amount,
       blessing: body.blessing,
-      payment_status: 'pending',
-    });
+      payment_status: 'pending'
+    })
 
     // 🔗 核心逻辑：随礼时自动绑定上下级关系
     // 规则1+5：自由人随礼时绑定主办方为上级（3年有效期）
     try {
       // 获取宴会信息以获取主办方 openid
-      const banquet = await this.giftService.getBanquetInfo(body.banquetId);
+      const banquet = await this.giftService.getBanquetInfo(body.banquetId)
       if (banquet && banquet.host_openid !== body.guestOpenid) {
         // 调用 referral 服务绑定关系
         await this.referralService.bindOnGift(
           body.guestOpenid,
           banquet.host_openid,
           body.banquetId
-        );
+        )
       }
     } catch (error) {
       // 绑定失败不影响随礼流程，仅记录日志
-      console.error('绑定上下级关系失败:', error);
+      console.error('绑定上下级关系失败:', error)
     }
-
+    
     return {
       code: 200,
       message: 'success',
-      data: data,
-    };
+      data: data
+    }
   }
 
   /**
    * 补录单条随礼记录
    * POST /api/gifts/supplement
-   *
+   * 
    * 【安全】
    * - 从已验证的请求中获取用户 openid
    * - 验证用户是否是宴会主办方
    */
   @Post('supplement')
   async supplementGiftRecord(
-    @Body()
-    body: {
-      banquetId: string;
-      guestName: string;
-      guestPhone?: string;
-      amount: number;
-      blessing?: string;
-      giftTime?: string; // 补录的随礼时间
+    @Body() body: {
+      banquetId: string
+      guestName: string
+      guestPhone?: string
+      amount: number
+      blessing?: string
+      giftTime?: string // 补录的随礼时间
     },
     @Req() req: Request
   ) {
     // 【安全】从已验证的请求中获取 openid
-    const hostOpenid = req.user?.openid;
-
+    const hostOpenid = req.user?.openid
+    
     if (!hostOpenid) {
       return {
         code: 401,
         message: '请先登录',
-        data: null,
-      };
+        data: null
+      }
     }
 
     try {
       // 【安全】验证当前用户是否是宴会主办方
-      const isHost = await this.giftService.verifyHostPermission(body.banquetId, hostOpenid);
-
+      const isHost = await this.giftService.verifyHostPermission(
+        body.banquetId,
+        hostOpenid
+      )
+      
       if (!isHost) {
         return {
           code: 403,
           message: '无权限补录，只有宴会主办方可以补录',
-          data: null,
-        };
+          data: null
+        }
       }
 
       // 创建补录记录
@@ -124,20 +132,20 @@ export class GiftController {
         gift_time: body.giftTime,
         is_supplement: true, // 标记为补录
         payment_status: 'completed', // 补录默认已支付
-        guest_openid: `supplement_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // 生成唯一标识
-      });
+        guest_openid: `supplement_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` // 生成唯一标识
+      })
 
       return {
         code: 200,
         message: '补录成功',
-        data: data,
-      };
+        data: data
+      }
     } catch (error) {
       return {
         code: 500,
         message: error.message || '补录失败',
-        data: null,
-      };
+        data: null
+      }
     }
   }
 
@@ -146,37 +154,42 @@ export class GiftController {
    * POST /api/gifts/supplement/batch
    */
   @Post('supplement/batch')
-  async batchSupplementGiftRecords(
-    @Body()
-    body: {
-      banquetId: string;
-      hostOpenid: string;
-      records: Array<{
-        guestName: string;
-        guestPhone?: string;
-        amount: number;
-        blessing?: string;
-        giftTime?: string;
-      }>;
-    }
-  ) {
+  async batchSupplementGiftRecords(@Body() body: {
+    banquetId: string
+    records: Array<{
+      guestName: string
+      guestPhone?: string
+      amount: number
+      blessing?: string
+      giftTime?: string
+    }>
+  }, @Req() req: Request) {
     try {
-      // 验证主办方权限
-      const isHost = await this.giftService.verifyHostPermission(body.banquetId, body.hostOpenid);
+      // 【安全】从已验证的请求中获取 openid
+      const hostOpenid = req.user?.openid
+      if (!hostOpenid) {
+        return { code: 401, message: '请先登录', data: null }
+      }
 
+      // 验证主办方权限
+      const isHost = await this.giftService.verifyHostPermission(
+        body.banquetId,
+        hostOpenid
+      )
+      
       if (!isHost) {
         return {
           code: 403,
           message: '无权限补录，只有宴会主办方可以补录',
-          data: null,
-        };
+          data: null
+        }
       }
 
       // 批量补录
       const results = await this.giftService.batchSupplementGiftRecords(
         body.banquetId,
         body.records
-      );
+      )
 
       return {
         code: 200,
@@ -184,15 +197,15 @@ export class GiftController {
         data: {
           success: results.success,
           failed: results.failed,
-          records: results.records,
-        },
-      };
+          records: results.records
+        }
+      }
     } catch (error) {
       return {
         code: 500,
         message: error.message || '批量补录失败',
-        data: null,
-      };
+        data: null
+      }
     }
   }
 
@@ -201,73 +214,44 @@ export class GiftController {
    * GET /api/gifts/supplement/list
    */
   @Post('supplement/list')
-  async getSupplementRecords(@Body() body: { banquetId: string; hostOpenid: string }) {
+  async getSupplementRecords(@Body() body: {
+    banquetId: string
+  }, @Req() req: Request) {
     try {
-      // 验证主办方权限
-      const isHost = await this.giftService.verifyHostPermission(body.banquetId, body.hostOpenid);
+      // 【安全】从已验证的请求中获取 openid
+      const hostOpenid = req.user?.openid
+      if (!hostOpenid) {
+        return { code: 401, message: '请先登录', data: null }
+      }
 
+      // 验证主办方权限
+      const isHost = await this.giftService.verifyHostPermission(
+        body.banquetId,
+        hostOpenid
+      )
+      
       if (!isHost) {
         return {
           code: 403,
           message: '无权限查看',
-          data: null,
-        };
+          data: null
+        }
       }
 
-      const records = await this.giftService.getSupplementRecords(body.banquetId);
+      const records = await this.giftService.getSupplementRecords(body.banquetId)
 
       return {
         code: 200,
         message: 'success',
-        data: { records },
-      };
+        data: { records }
+      }
     } catch (error) {
       return {
         code: 500,
         message: error.message || '获取失败',
-        data: null,
-      };
+        data: null
+      }
     }
-  }
-
-  /**
-   * 获取宴会的礼金记录
-   * GET /api/gifts/records
-   */
-  @Get('records')
-  async getGiftRecords(
-    @Query('banquetId') banquetId: string,
-    @Query('openid') openid: string,
-    @Req() req: Request
-  ) {
-    if (!banquetId) {
-      return {
-        code: 400,
-        message: '缺少banquetId参数',
-        data: null,
-      };
-    }
-
-    // 验证权限：只有主办方或宾客可以查看
-    const userOpenid = req.user?.openid || openid;
-    const isHost = await this.giftService.verifyHostPermission(banquetId, userOpenid);
-    const isGuest = await this.giftService.checkGuestExists(banquetId, userOpenid);
-
-    if (!isHost && !isGuest) {
-      return {
-        code: 403,
-        message: '无权限查看',
-        data: null,
-      };
-    }
-
-    const records = await this.giftService.getGiftRecords(banquetId);
-
-    return {
-      code: 200,
-      message: 'success',
-      data: { records },
-    };
   }
 
   /**
@@ -275,29 +259,34 @@ export class GiftController {
    * POST /api/gifts/supplement/delete
    */
   @Post('supplement/delete')
-  async deleteSupplementRecord(
-    @Body()
-    body: {
-      id: string; // 补录记录ID
-      banquetId: string; // 宴会ID（用于前端传递）
-      hostOpenid: string;
-    }
-  ) {
+  async deleteSupplementRecord(@Body() body: {
+    id: string // 补录记录ID
+    banquetId: string // 宴会ID
+  }, @Req() req: Request) {
     try {
+      // 【安全】从已验证的请求中获取 openid
+      const hostOpenid = req.user?.openid
+      if (!hostOpenid) {
+        return { code: 401, message: '请先登录', data: null }
+      }
+
       // 验证权限并删除
-      const result = await this.giftService.deleteSupplementRecord(body.id, body.hostOpenid);
+      const result = await this.giftService.deleteSupplementRecord(
+        body.id,
+        hostOpenid
+      )
 
       return {
         code: 200,
         message: '删除成功',
-        data: result,
-      };
+        data: result
+      }
     } catch (error) {
       return {
         code: 500,
         message: error.message || '删除失败',
-        data: null,
-      };
+        data: null
+      }
     }
   }
 }

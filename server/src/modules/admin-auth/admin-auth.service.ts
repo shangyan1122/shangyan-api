@@ -1,210 +1,123 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { TencentSmsService } from '@/common/services/tencent-sms.service';
-import * as jwt from 'jsonwebtoken';
+import { Injectable, Logger } from '@nestjs/common'
+import { getSupabaseClient } from '@/storage/database/supabase-client'
+import * as bcrypt from 'bcrypt'
+import * as jwt from 'jsonwebtoken'
+import { SmsService } from '@/services/sms.service'
 
-// 验证码存储（生产环境应使用Redis）
-interface VerificationCode {
-  code: string;
-  expireTime: number;
-  attempts: number; // 验证尝试次数
-}
-const verificationCodes = new Map<string, VerificationCode>();
-
-// 授权管理员手机号（从环境变量读取）
-const ALLOWED_ADMIN_PHONES = new Set<string>();
+// 模拟验证码存储（生产环境应使用Redis）
+const verificationCodes = new Map<string, { code: string; expireTime: number; count: number }>()
 
 @Injectable()
 export class AdminAuthService {
-  private readonly logger = new Logger(AdminAuthService.name);
-  private readonly jwtSecret: string;
-  private readonly codeExpireMinutes = 5;
-  private readonly maxCodeAttempts = 5; // 验证码最多尝试5次
-  private readonly codeCleanInterval = 60000; // 1分钟清理过期验证码
-
-  constructor(
-    private configService: ConfigService,
-    private smsService: TencentSmsService
-  ) {
-    // 从环境变量读取配置
-    this.jwtSecret =
-      this.configService.get<string>('JWT_SECRET') || 'shangyan-admin-secret-key-2024';
-
-    // 读取授权手机号列表
-    const allowedPhones = this.configService.get<string>('ADMIN_ALLOWED_PHONES') || '';
-    if (allowedPhones) {
-      allowedPhones.split(',').forEach((phone) => {
-        const trimmed = phone.trim();
-        if (trimmed) {
-          ALLOWED_ADMIN_PHONES.add(trimmed);
-        }
-      });
+  private readonly logger = new Logger(AdminAuthService.name)
+  private readonly jwtSecret = process.env.JWT_SECRET || (() => {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('JWT_SECRET environment variable is required in production')
     }
+    // 开发环境使用默认值，但会发出警告
+    console.warn('⚠️ 使用默认 JWT Secret，请设置 JWT_SECRET 环境变量')
+    return 'shangyan-admin-secret-key-2024-dev-only'
+  })()
+  private readonly codeExpireMinutes = 5
+  private readonly maxSendCount = 5  // 每小时最多发送次数
 
-    // 如果没有配置授权手机号，允许所有手机号登录（开发模式）
-    if (ALLOWED_ADMIN_PHONES.size === 0) {
-      this.logger.warn('⚠️ 未配置 ADMIN_ALLOWED_PHONES，允许所有手机号登录（开发模式）');
-    } else {
-      this.logger.log(`✅ 已加载 ${ALLOWED_ADMIN_PHONES.size} 个授权管理员手机号`);
-    }
-
-    // 启动定时清理过期验证码
-    this.startCodeCleanup();
-  }
-
-  /**
-   * 定时清理过期验证码
-   */
-  private startCodeCleanup() {
-    setInterval(() => {
-      const now = Date.now();
-      for (const [phone, data] of verificationCodes.entries()) {
-        if (now > data.expireTime) {
-          verificationCodes.delete(phone);
-        }
-      }
-    }, this.codeCleanInterval);
-  }
-
-  /**
-   * 检查手机号是否授权
-   */
-  private isPhoneAuthorized(phone: string): boolean {
-    // 如果没有配置授权列表，允许所有手机号
-    if (ALLOWED_ADMIN_PHONES.size === 0) {
-      return true;
-    }
-    return ALLOWED_ADMIN_PHONES.has(phone);
-  }
-
-  /**
-   * 获取授权手机号列表
-   */
-  getAuthorizedPhones(): string[] {
-    return Array.from(ALLOWED_ADMIN_PHONES);
-  }
+  constructor(private readonly smsService: SmsService) {}
 
   /**
    * 发送登录验证码
    */
   async sendLoginCode(phone: string): Promise<{ code: number; msg: string; data: null }> {
-    this.logger.log(`发送登录验证码请求: phone=${phone}`);
+    this.logger.log(`发送登录验证码: phone=${phone}`)
 
     // 验证手机号格式
-    if (!/^1[3-9]\d{9}$/.test(phone)) {
-      return { code: 400, msg: '请输入正确的手机号', data: null };
+    if (!this.smsService.isValidPhone(phone)) {
+      return { code: 400, msg: '手机号格式不正确', data: null }
     }
 
-    // 检查是否授权
-    if (!this.isPhoneAuthorized(phone)) {
-      this.logger.warn(`未授权手机号尝试登录: phone=${phone}`);
-      return { code: 403, msg: '该手机号未授权登录管理后台', data: null };
-    }
-
-    // 检查发送频率
-    const existingCode = verificationCodes.get(phone);
-    if (existingCode && Date.now() - existingCode.expireTime < -60000) {
-      const remainingSeconds = Math.ceil((60000 - (Date.now() - existingCode.expireTime)) / 1000);
-      if (remainingSeconds > 0) {
-        return { code: 429, msg: `请${remainingSeconds}秒后再试`, data: null };
-      }
+    // 检查发送频率限制
+    const stored = verificationCodes.get(phone)
+    if (stored && stored.count >= this.maxSendCount) {
+      const remainingTime = Math.ceil((stored.expireTime - Date.now()) / 1000 / 60)
+      return { code: 429, msg: `发送次数过多，请${remainingTime}分钟后再试`, data: null }
     }
 
     // 生成6位验证码
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expireTime = Date.now() + this.codeExpireMinutes * 60 * 1000;
+    const code = Math.floor(100000 + Math.random() * 900000).toString()
+    const expireTime = Date.now() + this.codeExpireMinutes * 60 * 1000
 
     // 存储验证码
-    verificationCodes.set(phone, { code, expireTime, attempts: 0 });
+    verificationCodes.set(phone, {
+      code,
+      expireTime,
+      count: (stored?.count || 0) + 1
+    })
 
-    // 发送短信
-    const smsResult = await this.smsService.sendLoginCode(phone, code);
+    // 调用短信服务发送验证码
+    const result = await this.smsService.sendVerificationCode(phone, code)
 
-    if (!smsResult.success) {
-      this.logger.error(`发送验证码失败: ${smsResult.error}`);
-      // 即使短信发送失败，也返回成功（防止暴力猜测手机号是否存在）
-      // 实际业务中可根据需求调整
-      return { code: 200, msg: '验证码已发送', data: null };
+    if (result.success) {
+      this.logger.log(`验证码已发送: phone=${phone}, code=${code}`)
+      return {
+        code: 200,
+        msg: result.msg,
+        data: null
+      }
+    } else {
+      this.logger.error(`验证码发送失败: ${result.msg}`)
+      // 发送失败，清除计数
+      if (stored) {
+        verificationCodes.set(phone, { ...stored, count: stored.count - 1 })
+      }
+      return {
+        code: 500,
+        msg: result.msg,
+        data: null
+      }
     }
-
-    this.logger.log(`验证码已发送: phone=${phone}, code=${code}`);
-    return { code: 200, msg: '验证码已发送', data: null };
   }
 
   /**
    * 管理员登录
    */
-  async login(
-    phone: string,
-    code: string
-  ): Promise<{ code: number; msg: string; data: { token: string; user: any } | null }> {
-    this.logger.log(`管理员登录: phone=${phone}`);
-
-    // 验证手机号格式
-    if (!/^1[3-9]\d{9}$/.test(phone)) {
-      return { code: 400, msg: '手机号格式不正确', data: null };
-    }
-
-    // 验证验证码格式
-    if (!/^\d{6}$/.test(code)) {
-      return { code: 400, msg: '验证码为6位数字', data: null };
-    }
-
-    // 检查是否授权
-    if (!this.isPhoneAuthorized(phone)) {
-      this.logger.warn(`未授权手机号尝试登录: phone=${phone}`);
-      return { code: 403, msg: '该手机号未授权登录管理后台', data: null };
-    }
-
-    // 获取存储的验证码
-    const storedCode = verificationCodes.get(phone);
-
-    if (!storedCode) {
-      return { code: 400, msg: '请先获取验证码', data: null };
-    }
-
-    // 检查验证码是否过期
-    if (Date.now() > storedCode.expireTime) {
-      verificationCodes.delete(phone);
-      return { code: 400, msg: '验证码已过期，请重新获取', data: null };
-    }
-
-    // 检查验证尝试次数
-    storedCode.attempts++;
-    if (storedCode.attempts > this.maxCodeAttempts) {
-      verificationCodes.delete(phone);
-      return { code: 400, msg: '验证次数过多，请重新获取验证码', data: null };
-    }
+  async login(phone: string, code: string): Promise<{ code: number; msg: string; data: { token: string; user: any } | null }> {
+    this.logger.log(`管理员登录: phone=${phone}`)
 
     // 验证验证码
+    const storedCode = verificationCodes.get(phone)
+    if (!storedCode) {
+      return { code: 400, msg: '请先获取验证码', data: null }
+    }
+
+    if (Date.now() > storedCode.expireTime) {
+      verificationCodes.delete(phone)
+      return { code: 400, msg: '验证码已过期，请重新获取', data: null }
+    }
+
     if (storedCode.code !== code) {
-      const remainingAttempts = this.maxCodeAttempts - storedCode.attempts;
-      this.logger.warn(`验证码错误: phone=${phone}, 剩余尝试次数=${remainingAttempts}`);
-      return {
-        code: 400,
-        msg:
-          remainingAttempts > 0
-            ? `验证码错误，剩余${remainingAttempts}次机会`
-            : '验证次数过多，请重新获取验证码',
-        data: null,
-      };
+      return { code: 400, msg: '验证码错误', data: null }
     }
 
     // 验证码验证通过，删除已使用的验证码
-    verificationCodes.delete(phone);
+    verificationCodes.delete(phone)
 
-    // 查询或创建管理员
-    const admin = await this.findOrCreateAdmin(phone);
+    // 查询管理员
+    const client = getSupabaseClient()
+    const { data: admin, error } = await client
+      .from('admins')
+      .select('*')
+      .eq('phone', phone)
+      .single()
 
-    if (!admin) {
-      return { code: 500, msg: '登录失败', data: null };
+    if (error || !admin) {
+      // 管理员不存在，拒绝登录（不再自动注册）
+      this.logger.warn(`管理员不存在: phone=${phone}`)
+      return { code: 403, msg: '该手机号未注册为管理员，请联系总管理员添加', data: null }
     }
 
     // 生成Token
-    const token = this.generateToken(admin);
+    const token = this.generateToken(admin)
 
-    this.logger.log(`管理员登录成功: phone=${phone}, id=${admin.id}`);
+    this.logger.log(`管理员登录成功: phone=${phone}, id=${admin.id}`)
     return {
       code: 200,
       msg: '登录成功',
@@ -214,110 +127,28 @@ export class AdminAuthService {
           id: admin.id,
           phone: admin.phone,
           name: admin.name,
-          role: admin.role,
-        },
-      },
-    };
-  }
-
-  /**
-   * 查询或创建管理员
-   */
-  private async findOrCreateAdmin(phone: string) {
-    const client = getSupabaseClient();
-
-    // 查询管理员
-    const { data: admin, error } = await client
-      .from('admins')
-      .select('*')
-      .eq('phone', phone)
-      .single();
-
-    if (!error && admin) {
-      return admin;
+          role: admin.role
+        }
+      }
     }
-
-    // 创建新管理员
-    const newAdmin = {
-      phone,
-      name: `管理员${phone.slice(-4)}`,
-      role: 'admin',
-      status: 'active',
-      created_at: new Date().toISOString(),
-    };
-
-    const { data: created, error: createError } = await client
-      .from('admins')
-      .insert(newAdmin)
-      .select()
-      .single();
-
-    if (createError) {
-      this.logger.error(`创建管理员失败: ${createError.message}`);
-      return null;
-    }
-
-    return created;
   }
 
   /**
    * 获取管理员信息
    */
   async getProfile(adminId: string): Promise<{ code: number; msg: string; data: any }> {
-    const client = getSupabaseClient();
+    const client = getSupabaseClient()
     const { data: admin, error } = await client
       .from('admins')
-      .select('id, phone, name, role, status, created_at')
+      .select('id, phone, name, role, created_at')
       .eq('id', adminId)
-      .single();
+      .single()
 
     if (error || !admin) {
-      return { code: 404, msg: '管理员不存在', data: null };
+      return { code: 404, msg: '管理员不存在', data: null }
     }
 
-    return { code: 200, msg: 'success', data: admin };
-  }
-
-  /**
-   * 获取管理员列表（仅超级管理员）
-   */
-  async getAdminList(): Promise<{ code: number; msg: string; data: any[] }> {
-    const client = getSupabaseClient();
-    const { data: admins, error } = await client
-      .from('admins')
-      .select('id, phone, name, role, status, created_at, last_login_at')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      this.logger.error('查询管理员列表失败:', error);
-      return { code: 500, msg: '查询失败', data: [] };
-    }
-
-    return { code: 200, msg: 'success', data: admins || [] };
-  }
-
-  /**
-   * 更新管理员信息
-   */
-  async updateAdmin(
-    adminId: string,
-    updates: { name?: string; role?: string; status?: string }
-  ): Promise<{ code: number; msg: string }> {
-    const client = getSupabaseClient();
-    const { error } = await client
-      .from('admins')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', adminId);
-
-    if (error) {
-      this.logger.error(`更新管理员失败: ${error.message}`);
-      return { code: 500, msg: '更新失败' };
-    }
-
-    return { code: 200, msg: '更新成功' };
+    return { code: 200, msg: 'success', data: admin }
   }
 
   /**
@@ -328,11 +159,11 @@ export class AdminAuthService {
       {
         id: admin.id,
         phone: admin.phone,
-        role: admin.role,
+        role: admin.role
       },
       this.jwtSecret,
       { expiresIn: '7d' }
-    );
+    )
   }
 
   /**
@@ -340,37 +171,240 @@ export class AdminAuthService {
    */
   verifyToken(token: string): any {
     try {
-      return jwt.verify(token, this.jwtSecret);
+      return jwt.verify(token, this.jwtSecret)
     } catch {
-      return null;
+      return null
     }
   }
 
   /**
-   * 刷新Token
+   * 初始化总管理员
+   * 如果 admins 表中没有超级管理员，自动创建
    */
-  async refreshToken(
-    token: string
-  ): Promise<{ code: number; msg: string; data: { token: string } | null }> {
-    const decoded = this.verifyToken(token);
-    if (!decoded) {
-      return { code: 401, msg: 'Token无效', data: null };
-    }
+  async initializeSuperAdmin(): Promise<void> {
+    const client = getSupabaseClient()
 
-    // 查询管理员
-    const client = getSupabaseClient();
-    const { data: admin, error } = await client
+    // 检查是否已有超级管理员
+    const { data: existing } = await client
       .from('admins')
-      .select('*')
-      .eq('id', decoded.id)
-      .single();
+      .select('id')
+      .eq('role', 'super_admin')
+      .limit(1)
 
-    if (error || !admin) {
-      return { code: 401, msg: '管理员不存在', data: null };
+    if (existing && existing.length > 0) {
+      return
     }
 
-    // 生成新Token
-    const newToken = this.generateToken(admin);
-    return { code: 200, msg: '刷新成功', data: { token: newToken } };
+    // 创建总管理员 19503511949
+    const superPhone = '19503511949'
+    const { data: existingAdmin } = await client
+      .from('admins')
+      .select('id')
+      .eq('phone', superPhone)
+      .single()
+
+    if (existingAdmin) {
+      // 如果手机号已存在但不是超级管理员，升级角色
+      await client
+        .from('admins')
+        .update({
+          role: 'super_admin',
+          permissions: ['*'],
+          name: '总管理员'
+        })
+        .eq('id', existingAdmin.id)
+      this.logger.log('已将现有管理员升级为超级管理员')
+      return
+    }
+
+    // 创建新的超级管理员
+    const { error } = await client
+      .from('admins')
+      .insert({
+        phone: superPhone,
+        name: '总管理员',
+        role: 'super_admin',
+        permissions: ['*'],
+        created_at: new Date().toISOString()
+      })
+
+    if (error) {
+      this.logger.error(`初始化总管理员失败: ${error.message}`)
+    } else {
+      this.logger.log('总管理员初始化成功: 19503511949')
+    }
+  }
+
+  /**
+   * 获取管理员列表
+   */
+  async getAdminList(params: {
+    page?: number
+    pageSize?: number
+    search?: string
+  }): Promise<{ code: number; msg: string; data: { list: any[]; total: number } }> {
+    const { page = 1, pageSize = 10, search } = params
+    const client = getSupabaseClient()
+
+    let query = client
+      .from('admins')
+      .select('id, phone, name, role, permissions, created_at', { count: 'exact' })
+
+    if (search) {
+      query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%`)
+    }
+
+    const from = (page - 1) * pageSize
+    const to = from + pageSize - 1
+    query = query.range(from, to).order('created_at', { ascending: false })
+
+    const { data: admins, error, count } = await query
+
+    if (error) {
+      this.logger.error(`获取管理员列表失败: ${error.message}`)
+      return { code: 500, msg: '查询失败', data: { list: [], total: 0 } }
+    }
+
+    const roleMap: Record<string, string> = {
+      super_admin: '超级管理员',
+      admin: '普通管理员',
+      customer_service: '客服人员',
+      finance: '财务人员'
+    }
+
+    const list = (admins || []).map(admin => ({
+      id: admin.id,
+      phone: admin.phone,
+      name: admin.name,
+      role: admin.role,
+      roleName: roleMap[admin.role] || admin.role,
+      permissions: admin.permissions || [],
+      createdAt: admin.created_at
+    }))
+
+    return { code: 200, msg: 'success', data: { list, total: count || 0 } }
+  }
+
+  /**
+   * 添加管理员（仅超级管理员可操作）
+   */
+  async addAdmin(params: {
+    phone: string
+    name: string
+    role: string
+  }): Promise<{ code: number; msg: string; data: any }> {
+    const { phone, name, role } = params
+    const client = getSupabaseClient()
+
+    // 检查手机号是否已存在
+    const { data: existing } = await client
+      .from('admins')
+      .select('id')
+      .eq('phone', phone)
+      .single()
+
+    if (existing) {
+      return { code: 400, msg: '该手机号已是管理员', data: null }
+    }
+
+    // 获取角色对应的权限
+    const rolePermissionsMap: Record<string, string[]> = {
+      super_admin: ['*'],
+      admin: ['banquet:read', 'banquet:write', 'user:read', 'order:read', 'order:write', 'product:read', 'finance:read'],
+      customer_service: ['banquet:read', 'user:read', 'order:read'],
+      finance: ['order:read', 'finance:read', 'finance:write']
+    }
+
+    const { data: created, error } = await client
+      .from('admins')
+      .insert({
+        phone,
+        name,
+        role,
+        permissions: rolePermissionsMap[role] || [],
+        created_at: new Date().toISOString()
+      })
+      .select('id, phone, name, role, created_at')
+      .single()
+
+    if (error) {
+      this.logger.error(`添加管理员失败: ${error.message}`)
+      return { code: 500, msg: '添加失败', data: null }
+    }
+
+    this.logger.log(`添加管理员成功: phone=${phone}, role=${role}`)
+    return { code: 200, msg: '添加成功', data: created }
+  }
+
+  /**
+   * 删除管理员（仅超级管理员可操作，不能删除自己）
+   */
+  async deleteAdmin(adminId: string, operatorId: string): Promise<{ code: number; msg: string; data: null }> {
+    if (adminId === operatorId) {
+      return { code: 400, msg: '不能删除自己', data: null }
+    }
+
+    const client = getSupabaseClient()
+
+    // 检查目标是否是超级管理员
+    const { data: target } = await client
+      .from('admins')
+      .select('role')
+      .eq('id', adminId)
+      .single()
+
+    if (target?.role === 'super_admin') {
+      // 检查是否还有其他超级管理员
+      const { data: superAdmins } = await client
+        .from('admins')
+        .select('id')
+        .eq('role', 'super_admin')
+
+      if (!superAdmins || superAdmins.length <= 1) {
+        return { code: 400, msg: '至少需要保留一个超级管理员', data: null }
+      }
+    }
+
+    const { error } = await client
+      .from('admins')
+      .delete()
+      .eq('id', adminId)
+
+    if (error) {
+      this.logger.error(`删除管理员失败: ${error.message}`)
+      return { code: 500, msg: '删除失败', data: null }
+    }
+
+    this.logger.log(`删除管理员成功: id=${adminId}`)
+    return { code: 200, msg: '删除成功', data: null }
+  }
+
+  /**
+   * 修改管理员角色（仅超级管理员可操作）
+   */
+  async updateAdminRole(adminId: string, role: string): Promise<{ code: number; msg: string; data: null }> {
+    const rolePermissionsMap: Record<string, string[]> = {
+      super_admin: ['*'],
+      admin: ['banquet:read', 'banquet:write', 'user:read', 'order:read', 'order:write', 'product:read', 'finance:read'],
+      customer_service: ['banquet:read', 'user:read', 'order:read'],
+      finance: ['order:read', 'finance:read', 'finance:write']
+    }
+
+    const client = getSupabaseClient()
+    const { error } = await client
+      .from('admins')
+      .update({
+        role,
+        permissions: rolePermissionsMap[role] || []
+      })
+      .eq('id', adminId)
+
+    if (error) {
+      this.logger.error(`修改管理员角色失败: ${error.message}`)
+      return { code: 500, msg: '修改失败', data: null }
+    }
+
+    this.logger.log(`修改管理员角色成功: id=${adminId}, role=${role}`)
+    return { code: 200, msg: '修改成功', data: null }
   }
 }

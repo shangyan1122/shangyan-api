@@ -1,18 +1,34 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
-import { AdminStatsService } from './admin-stats.service';
-import { AdminAuthGuard } from '@/common/guards/admin-auth.guard';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common'
+import { AdminStatsService } from './admin-stats.service'
+import { AdminGuard } from '@/common/guards/admin.guard'
 
 @Controller('admin/stats')
-@UseGuards(AdminAuthGuard)
+@UseGuards(AdminGuard)
 export class AdminStatsController {
   constructor(private readonly adminStatsService: AdminStatsService) {}
 
   /**
    * 获取数据统计概览
+   * 同时支持 /stats 和 /stats/overview 两个路由
    */
   @Get()
-  async getStats(@Query('startDate') startDate?: string, @Query('endDate') endDate?: string) {
-    return this.adminStatsService.getStats({ startDate, endDate });
+  async getStats(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string
+  ) {
+    return this.adminStatsService.getStats({ startDate, endDate })
+  }
+
+  /**
+   * 获取数据统计概览（overview 路由）
+   * 保持与 /stats 相同的功能
+   */
+  @Get('overview')
+  async getOverview(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string
+  ) {
+    return this.adminStatsService.getStats({ startDate, endDate })
   }
 
   /**
@@ -20,7 +36,7 @@ export class AdminStatsController {
    */
   @Get('gift-rankings')
   async getGiftRankings() {
-    return this.adminStatsService.getGiftRankings();
+    return this.adminStatsService.getGiftRankings()
   }
 
   /**
@@ -28,7 +44,7 @@ export class AdminStatsController {
    */
   @Get('banquet-rankings')
   async getBanquetRankings() {
-    return this.adminStatsService.getBanquetRankings();
+    return this.adminStatsService.getBanquetRankings()
   }
 
   /**
@@ -36,7 +52,7 @@ export class AdminStatsController {
    */
   @Get('sales-rankings')
   async getSalesRankings() {
-    return this.adminStatsService.getSalesRankings();
+    return this.adminStatsService.getSalesRankings()
   }
 
   /**
@@ -44,6 +60,6 @@ export class AdminStatsController {
    */
   @Get('daily-trend')
   async getDailyTrend() {
-    return this.adminStatsService.getDailyTrend();
+    return this.adminStatsService.getDailyTrend()
   }
 }

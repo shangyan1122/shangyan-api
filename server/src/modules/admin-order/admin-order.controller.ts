@@ -1,11 +1,12 @@
-import { Controller, Get, Post, Body, Param, Query, Logger, UseGuards } from '@nestjs/common';
-import { AdminOrderService } from './admin-order.service';
-import { AdminAuthGuard } from '@/common/guards/admin-auth.guard';
+import { Controller, Get, Post, Body, Param, Query, Logger, UseGuards } from '@nestjs/common'
+import { AdminOrderService } from './admin-order.service'
+import { AdminGuard } from '@/common/guards/admin.guard'
+import { RequirePermissions } from '@/common/guards/permission.guard'
 
 @Controller('admin/orders')
-@UseGuards(AdminAuthGuard)
+@UseGuards(AdminGuard)
 export class AdminOrderController {
-  private readonly logger = new Logger(AdminOrderController.name);
+  private readonly logger = new Logger(AdminOrderController.name)
 
   constructor(private readonly adminOrderService: AdminOrderService) {}
 
@@ -13,6 +14,7 @@ export class AdminOrderController {
    * 获取订单列表
    */
   @Get()
+  @RequirePermissions('order:read')
   async getOrders(
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
@@ -27,16 +29,17 @@ export class AdminOrderController {
       status,
       search,
       startDate,
-      endDate,
-    });
+      endDate
+    })
   }
 
   /**
    * 获取订单详情
    */
   @Get(':id')
+  @RequirePermissions('order:read')
   async getOrderDetail(@Param('id') id: string) {
-    return this.adminOrderService.getOrderDetail(id);
+    return this.adminOrderService.getOrderDetail(id)
   }
 
   /**
@@ -44,8 +47,8 @@ export class AdminOrderController {
    */
   @Post(':id/ship')
   async shipOrder(@Param('id') id: string) {
-    this.logger.log(`发货请求: orderId=${id}`);
-    return this.adminOrderService.shipOrder(id);
+    this.logger.log(`发货请求: orderId=${id}`)
+    return this.adminOrderService.shipOrder(id)
   }
 
   /**
@@ -53,8 +56,8 @@ export class AdminOrderController {
    */
   @Post(':id/complete')
   async completeOrder(@Param('id') id: string) {
-    this.logger.log(`完成订单请求: orderId=${id}`);
-    return this.adminOrderService.completeOrder(id);
+    this.logger.log(`完成订单请求: orderId=${id}`)
+    return this.adminOrderService.completeOrder(id)
   }
 
   /**
@@ -62,7 +65,37 @@ export class AdminOrderController {
    */
   @Post(':id/refund')
   async refundOrder(@Param('id') id: string) {
-    this.logger.log(`退款请求: orderId=${id}`);
-    return this.adminOrderService.refundOrder(id);
+    this.logger.log(`退款请求: orderId=${id}`)
+    return this.adminOrderService.refundOrder(id)
+  }
+
+  /**
+   * 批量发货
+   */
+  @Post('batch/ship')
+  @RequirePermissions('order:write')
+  async batchShipOrders(@Body() body: { orderIds: string[] }) {
+    this.logger.log(`批量发货请求: ${body.orderIds.length} 个订单`)
+    return this.adminOrderService.batchShipOrders(body.orderIds)
+  }
+
+  /**
+   * 批量取消订单
+   */
+  @Post('batch/cancel')
+  @RequirePermissions('order:write')
+  async batchCancelOrders(@Body() body: { orderIds: string[]; reason?: string }) {
+    this.logger.log(`批量取消订单请求: ${body.orderIds.length} 个订单`)
+    return this.adminOrderService.batchCancelOrders(body.orderIds, body.reason)
+  }
+
+  /**
+   * 批量导出订单
+   */
+  @Post('batch/export')
+  @RequirePermissions('order:export')
+  async batchExportOrders(@Body() body: { orderIds: string[] }) {
+    this.logger.log(`批量导出订单请求: ${body.orderIds.length} 个订单`)
+    return this.adminOrderService.batchExportOrders(body.orderIds)
   }
 }

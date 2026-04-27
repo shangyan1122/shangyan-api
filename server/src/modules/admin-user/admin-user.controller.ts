@@ -1,11 +1,12 @@
-import { Controller, Get, Post, Param, Query, Body, Logger, UseGuards } from '@nestjs/common';
-import { AdminUserService } from './admin-user.service';
-import { AdminAuthGuard } from '@/common/guards/admin-auth.guard';
+import { Controller, Get, Post, Param, Query, Body, Logger, UseGuards } from '@nestjs/common'
+import { AdminUserService } from './admin-user.service'
+import { AdminGuard } from '@/common/guards/admin.guard'
+import { RequirePermissions } from '@/common/guards/permission.guard'
 
 @Controller('admin/users')
-@UseGuards(AdminAuthGuard)
+@UseGuards(AdminGuard)
 export class AdminUserController {
-  private readonly logger = new Logger(AdminUserController.name);
+  private readonly logger = new Logger(AdminUserController.name)
 
   constructor(private readonly adminUserService: AdminUserService) {}
 
@@ -13,6 +14,7 @@ export class AdminUserController {
    * 获取用户列表
    */
   @Get()
+  @RequirePermissions('user:read')
   async getUsers(
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
@@ -23,27 +25,29 @@ export class AdminUserController {
       page: page ? parseInt(page) : 1,
       pageSize: pageSize ? parseInt(pageSize) : 10,
       isVip: isVip === 'true' ? true : isVip === 'false' ? false : undefined,
-      search,
-    });
+      search
+    })
   }
 
   /**
    * 获取用户详情
    */
   @Get(':id')
+  @RequirePermissions('user:read')
   async getUserDetail(@Param('id') id: string) {
-    return this.adminUserService.getUserDetail(id);
+    return this.adminUserService.getUserDetail(id)
   }
 
   /**
    * 设置VIP状态
    */
   @Post(':id/vip')
+  @RequirePermissions('user:write')
   async setVipStatus(
     @Param('id') id: string,
     @Body() body: { isVip: boolean; expireDays?: number }
   ) {
-    this.logger.log(`设置VIP: userId=${id}, isVip=${body.isVip}`);
-    return this.adminUserService.setVipStatus(id, body.isVip, body.expireDays);
+    this.logger.log(`设置VIP: userId=${id}, isVip=${body.isVip}`)
+    return this.adminUserService.setVipStatus(id, body.isVip, body.expireDays)
   }
 }

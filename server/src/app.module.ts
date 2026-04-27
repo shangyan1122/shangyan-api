@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
+import { APP_GUARD } from '@nestjs/core';
 import { AppController } from '@/app.controller';
 import { AppService } from '@/app.service';
 import { CommonModule } from '@/common/common.module';
-import { HealthModule } from '@/health/health.module';
 import { AuthModule } from '@/modules/auth/auth.module';
+import { AuthGuard } from '@/common/guards/auth.guard';
 import { BanquetModule } from '@/modules/banquet/banquet.module';
 import { UploadModule } from '@/modules/upload/upload.module';
 import { GiftModule } from '@/modules/gift/gift.module';
@@ -39,22 +40,34 @@ import { AdminUserModule } from '@/modules/admin-user/admin-user.module';
 import { AdminBanquetModule } from '@/modules/admin-banquet/admin-banquet.module';
 import { AdminFinanceModule } from '@/modules/admin-finance/admin-finance.module';
 import { AdminStatsModule } from '@/modules/admin-stats/admin-stats.module';
+import { AdminExportModule } from '@/modules/admin-export/admin-export.module';
+import { AdminGiftRecordModule } from '@/modules/admin-gift-record/admin-gift-record.module';
+import { AdminReturnGiftModule } from '@/modules/admin-return-gift/admin-return-gift.module';
+import { AdminRecommendOfficerModule } from '@/modules/admin-recommend-officer/admin-recommend-officer.module';
+import { AdminRechargeModule } from '@/modules/admin-recharge/admin-recharge.module';
+import { AdminPaidFeaturesModule } from '@/modules/admin-paid-features/admin-paid-features.module';
+import { MemberManagementModule } from '@/modules/member-management/member-management.module';
+import { MerchantManagementModule } from '@/modules/merchant-management/merchant-management.module';
+import { OperationsManagementModule } from '@/modules/operations-management/operations-management.module';
+import { PerformanceModule } from '@/common/performance/performance.module';
+
+// 测试模块仅在非生产环境加载，防止测试接口在生产环境暴露
+const devModules = process.env.NODE_ENV === 'production' ? [] : [TestModule];
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
-    HealthModule,
     CommonModule,
     AuthModule,
-    BanquetModule,
-    UploadModule,
-    GiftModule,
-    AIModule,
-    PaymentModule,
-    UserModule,
-    WithdrawModule,
-    PartnerModule,
-    MallModule,
+    BanquetModule, 
+    UploadModule, 
+    GiftModule, 
+    AIModule, 
+    PaymentModule, 
+    UserModule, 
+    WithdrawModule, 
+    PartnerModule, 
+    MallModule, 
     ReferralModule,
     ReturnGiftModule,
     GiftReminderModule,
@@ -65,7 +78,7 @@ import { AdminStatsModule } from '@/modules/admin-stats/admin-stats.module';
     GiftProductModule,
     OnsiteGiftModule,
     MerchantModule,
-    TestModule,
+    ...devModules,
     MallOrderModule,
     GiftExchangeModule,
     Alibaba1688Module,
@@ -80,8 +93,22 @@ import { AdminStatsModule } from '@/modules/admin-stats/admin-stats.module';
     AdminBanquetModule,
     AdminFinanceModule,
     AdminStatsModule,
+    AdminExportModule,
+    AdminGiftRecordModule,
+    AdminReturnGiftModule,
+    AdminRecommendOfficerModule,
+    AdminRechargeModule,
+    AdminPaidFeaturesModule,
+    MemberManagementModule,
+    MerchantManagementModule,
+    OperationsManagementModule,
+    PerformanceModule
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // 全局认证守卫 - 所有接口默认需要认证，使用 @Public() 装饰器标记公开接口
+    { provide: APP_GUARD, useClass: AuthGuard },
+  ],
 })
 export class AppModule {}

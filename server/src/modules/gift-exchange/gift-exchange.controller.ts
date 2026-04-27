@@ -1,13 +1,14 @@
-import { Controller, Get, Post, Body, Query, Param } from '@nestjs/common';
-import { Logger } from '@nestjs/common';
-import { GiftExchangeService, CreateExchangeDto } from './gift-exchange.service';
+import { Controller, Get, Post, Body, Query, Param } from '@nestjs/common'
+import { Logger } from '@nestjs/common'
+import { GiftExchangeService, CreateExchangeDto } from './gift-exchange.service'
+import { Public } from '@/common/guards/auth.guard'
 
 /**
  * 商品置换控制器
  */
 @Controller('gift-exchange')
 export class GiftExchangeController {
-  private readonly logger = new Logger(GiftExchangeController.name);
+  private readonly logger = new Logger(GiftExchangeController.name)
 
   constructor(private readonly exchangeService: GiftExchangeService) {}
 
@@ -15,12 +16,17 @@ export class GiftExchangeController {
    * 预览置换方案
    */
   @Post('preview')
-  async previewExchange(@Body() body: { sourceItems: any[]; targetItems: any[] }) {
+  async previewExchange(
+    @Body() body: { sourceItems: any[]; targetItems: any[] }
+  ) {
     try {
-      const result = await this.exchangeService.previewExchange(body.sourceItems, body.targetItems);
-      return { code: 200, msg: 'success', data: result };
+      const result = await this.exchangeService.previewExchange(
+        body.sourceItems,
+        body.targetItems
+      )
+      return { code: 200, msg: 'success', data: result }
     } catch (error: any) {
-      return { code: 500, msg: error.message, data: null };
+      return { code: 500, msg: error.message, data: null }
     }
   }
 
@@ -29,14 +35,14 @@ export class GiftExchangeController {
    */
   @Post('create')
   async createExchange(@Body() body: CreateExchangeDto) {
-    this.logger.log(`创建置换: user=${body.userOpenid}, type=${body.exchangeType}`);
+    this.logger.log(`创建置换: user=${body.userOpenid}, type=${body.exchangeType}`)
 
     try {
-      const result = await this.exchangeService.createExchange(body);
-      return { code: 200, msg: 'success', data: result };
+      const result = await this.exchangeService.createExchange(body)
+      return { code: 200, msg: 'success', data: result }
     } catch (error: any) {
-      this.logger.error(`创建置换失败: ${error.message}`);
-      return { code: 500, msg: error.message, data: null };
+      this.logger.error(`创建置换失败: ${error.message}`)
+      return { code: 500, msg: error.message, data: null }
     }
   }
 
@@ -46,10 +52,10 @@ export class GiftExchangeController {
   @Get('available-gifts')
   async getAvailableGifts(@Query('openid') openid: string) {
     try {
-      const gifts = await this.exchangeService.getUserAvailableGifts(openid);
-      return { code: 200, msg: 'success', data: gifts };
+      const gifts = await this.exchangeService.getUserAvailableGifts(openid)
+      return { code: 200, msg: 'success', data: gifts }
     } catch (error: any) {
-      return { code: 500, msg: '获取失败', data: [] };
+      return { code: 500, msg: '获取失败', data: [] }
     }
   }
 
@@ -67,10 +73,10 @@ export class GiftExchangeController {
         openid,
         parseInt(page || '1'),
         parseInt(pageSize || '10')
-      );
-      return { code: 200, msg: 'success', data: result };
+      )
+      return { code: 200, msg: 'success', data: result }
     } catch (error: any) {
-      return { code: 500, msg: '获取失败', data: { records: [], total: 0 } };
+      return { code: 500, msg: '获取失败', data: { records: [], total: 0 } }
     }
   }
 
@@ -80,29 +86,34 @@ export class GiftExchangeController {
   @Get(':id')
   async getExchangeById(@Param('id') id: string) {
     try {
-      const result = await this.exchangeService.getExchangeById(id);
+      const result = await this.exchangeService.getExchangeById(id)
       if (!result) {
-        return { code: 404, msg: '置换记录不存在', data: null };
+        return { code: 404, msg: '置换记录不存在', data: null }
       }
-      return { code: 200, msg: 'success', data: result };
+      return { code: 200, msg: 'success', data: result }
     } catch (error: any) {
-      return { code: 500, msg: '获取失败', data: null };
+      return { code: 500, msg: '获取失败', data: null }
     }
   }
 
   /**
    * 差价支付成功回调
+   * ⚠️ 此接口由微信支付回调调用，不需要用户认证
+   * TODO: 添加微信支付签名验证，防止伪造回调
    */
+  @Public()
   @Post('diff-payment-success')
-  async handleDiffPaymentSuccess(@Body() body: { exchangeNo: string; transactionId: string }) {
+  async handleDiffPaymentSuccess(
+    @Body() body: { exchangeNo: string; transactionId: string }
+  ) {
     try {
       const success = await this.exchangeService.handleDiffPaymentSuccess(
         body.exchangeNo,
         body.transactionId
-      );
-      return { code: 200, msg: 'success', data: { success } };
+      )
+      return { code: 200, msg: 'success', data: { success } }
     } catch (error: any) {
-      return { code: 500, msg: error.message, data: { success: false } };
+      return { code: 500, msg: error.message, data: { success: false } }
     }
   }
 
@@ -112,10 +123,10 @@ export class GiftExchangeController {
   @Post('complete')
   async completeExchange(@Body() body: { exchangeId: string }) {
     try {
-      const success = await this.exchangeService.completeExchange(body.exchangeId);
-      return { code: 200, msg: 'success', data: { success } };
+      const success = await this.exchangeService.completeExchange(body.exchangeId)
+      return { code: 200, msg: 'success', data: { success } }
     } catch (error: any) {
-      return { code: 500, msg: error.message, data: { success: false } };
+      return { code: 500, msg: error.message, data: { success: false } }
     }
   }
 
@@ -125,10 +136,10 @@ export class GiftExchangeController {
   @Post('cancel')
   async cancelExchange(@Body() body: { exchangeId: string }) {
     try {
-      const success = await this.exchangeService.cancelExchange(body.exchangeId);
-      return { code: 200, msg: 'success', data: { success } };
+      const success = await this.exchangeService.cancelExchange(body.exchangeId)
+      return { code: 200, msg: 'success', data: { success } }
     } catch (error: any) {
-      return { code: 500, msg: error.message, data: { success: false } };
+      return { code: 500, msg: error.message, data: { success: false } }
     }
   }
 }

@@ -1,5 +1,5 @@
-import { Controller, Post, Body, Get, Query, Param } from '@nestjs/common';
-import { PartnerService } from './partner.service';
+import { Controller, Post, Body, Get, Query, Param } from '@nestjs/common'
+import { PartnerService } from './partner.service'
 
 @Controller('partner')
 export class PartnerController {
@@ -10,15 +10,15 @@ export class PartnerController {
    */
   @Post('apply')
   async apply(@Body() body: any) {
-    const { companyName, contactName, phone, email, businessType, description } = body;
+    const { companyName, contactName, phone, email, businessType, description } = body
 
     // 验证必填字段
     if (!companyName || !contactName || !phone) {
       return {
         code: 400,
         msg: '请填写完整信息',
-        data: null,
-      };
+        data: null
+      }
     }
 
     // 验证手机号格式
@@ -26,18 +26,18 @@ export class PartnerController {
       return {
         code: 400,
         msg: '请输入正确的手机号',
-        data: null,
-      };
+        data: null
+      }
     }
 
     // 检查是否已申请
-    const exists = await this.partnerService.checkPhoneExists(phone);
+    const exists = await this.partnerService.checkPhoneExists(phone)
     if (exists) {
       return {
         code: 400,
         msg: '该手机号已提交过申请',
-        data: null,
-      };
+        data: null
+      }
     }
 
     try {
@@ -47,23 +47,23 @@ export class PartnerController {
         phone,
         email,
         businessType,
-        description,
-      });
+        description
+      })
 
       return {
         code: 200,
         msg: '提交成功',
         data: {
           id: application.id,
-          status: application.status,
-        },
-      };
+          status: application.status
+        }
+      }
     } catch (error) {
       return {
         code: 500,
         msg: '提交失败，请稍后重试',
-        data: null,
-      };
+        data: null
+      }
     }
   }
 
@@ -72,14 +72,14 @@ export class PartnerController {
    */
   @Get('status/:id')
   async getStatus(@Param('id') id: string) {
-    const application = await this.partnerService.getApplicationById(id);
+    const application = await this.partnerService.getApplicationById(id)
 
     if (!application) {
       return {
         code: 404,
         msg: '申请不存在',
-        data: null,
-      };
+        data: null
+      }
     }
 
     return {
@@ -91,9 +91,9 @@ export class PartnerController {
         status: application.status,
         createdAt: application.created_at,
         reviewedAt: application.reviewed_at,
-        reviewerNote: application.reviewer_note,
-      },
-    };
+        reviewerNote: application.reviewer_note
+      }
+    }
   }
 
   /**
@@ -109,13 +109,13 @@ export class PartnerController {
       parseInt(page),
       parseInt(pageSize),
       status
-    );
+    )
 
     return {
       code: 200,
       msg: 'success',
-      data: result,
-    };
+      data: result
+    }
   }
 
   /**
@@ -123,33 +123,33 @@ export class PartnerController {
    */
   @Post('review')
   async review(@Body() body: { id: string; status: 'approved' | 'rejected'; note?: string }) {
-    const { id, status, note } = body;
+    const { id, status, note } = body
 
     if (!id || !status) {
       return {
         code: 400,
         msg: '参数错误',
-        data: null,
-      };
+        data: null
+      }
     }
 
     try {
-      const application = await this.partnerService.reviewApplication(id, status, note);
+      const application = await this.partnerService.reviewApplication(id, status, note)
 
       return {
         code: 200,
         msg: '审核成功',
         data: {
           id: application.id,
-          status: application.status,
-        },
-      };
+          status: application.status
+        }
+      }
     } catch (error) {
       return {
         code: 500,
         msg: '审核失败',
-        data: null,
-      };
+        data: null
+      }
     }
   }
 }

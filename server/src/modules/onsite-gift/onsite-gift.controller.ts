@@ -1,7 +1,7 @@
-import { Controller, Get, Post, Body, Query, UseGuards, Req, Logger, Param } from '@nestjs/common';
-import { Request } from 'express';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { AuthGuard, Public } from '@/common/guards/auth.guard';
+import { Controller, Get, Post, Body, Query, UseGuards, Req, Logger, Param } from '@nestjs/common'
+import { Request } from 'express'
+import { getSupabaseClient } from '@/storage/database/supabase-client'
+import { AuthGuard, Public } from '@/common/guards/auth.guard'
 
 /**
  * 现场礼品控制器
@@ -10,7 +10,7 @@ import { AuthGuard, Public } from '@/common/guards/auth.guard';
 @Controller('onsite-gifts')
 @UseGuards(AuthGuard)
 export class OnsiteGiftController {
-  private readonly logger = new Logger(OnsiteGiftController.name);
+  private readonly logger = new Logger(OnsiteGiftController.name)
 
   /**
    * 生成领取码
@@ -18,27 +18,31 @@ export class OnsiteGiftController {
    */
   @Post('generate-code')
   async generateClaimCode(
-    @Body() body: { banquetId: string; guestOpenid: string; guestName?: string }
+    @Body() body: {
+      banquetId: string
+      guestOpenid: string
+      guestName?: string
+    }
   ) {
-    this.logger.log(`生成领取码: banquetId=${body.banquetId}, guest=${body.guestOpenid}`);
+    this.logger.log(`生成领取码: banquetId=${body.banquetId}, guest=${body.guestOpenid}`)
 
     try {
-      const client = getSupabaseClient();
+      const client = getSupabaseClient()
 
       // 获取宴会信息和回礼配置
       const { data: banquet, error: banquetError } = await client
         .from('banquets')
         .select('*')
         .eq('id', body.banquetId)
-        .single();
+        .single()
 
       if (banquetError || !banquet) {
-        return { code: 404, msg: '宴会不存在', data: null };
+        return { code: 404, msg: '宴会不存在', data: null }
       }
 
-      const returnGiftConfig = banquet.return_gift_config;
+      const returnGiftConfig = banquet.return_gift_config
       if (!returnGiftConfig?.onsiteGifts?.enabled) {
-        return { code: 400, msg: '该宴会未启用现场礼品', data: null };
+        return { code: 400, msg: '该宴会未启用现场礼品', data: null }
       }
 
       // 获取现场礼品列表
@@ -46,18 +50,17 @@ export class OnsiteGiftController {
         .from('onsite_gifts')
         .select('*')
         .eq('banquet_id', body.banquetId)
-        .gt('remaining_count', 0);
+        .gt('remaining_count', 0)
 
       if (giftsError || !onsiteGifts || onsiteGifts.length === 0) {
-        return { code: 400, msg: '暂无可领取的礼品', data: null };
+        return { code: 400, msg: '暂无可领取的礼品', data: null }
       }
 
       // 为每个礼品生成领取码
-      const codes: Array<{ code: string; giftId: string; giftName: string; giftImage: string }> =
-        [];
+      const codes: Array<{ code: string; giftId: string; giftName: string; giftImage: string }> = []
       for (const gift of onsiteGifts) {
-        const code = this.generateRandomCode();
-
+        const code = this.generateRandomCode()
+        
         const { data: claimCode, error: insertError } = await client
           .from('gift_claim_codes')
           .insert({
@@ -69,35 +72,35 @@ export class OnsiteGiftController {
             guest_openid: body.guestOpenid,
             guest_name: body.guestName || null,
             status: 'claimed',
-            claimed_at: new Date().toISOString(),
+            claimed_at: new Date().toISOString()
           })
           .select()
-          .single();
+          .single()
 
         if (!insertError && claimCode) {
           codes.push({
             code: claimCode.code,
             giftId: gift.id,
             giftName: gift.name,
-            giftImage: gift.image,
-          });
+            giftImage: gift.image
+          })
 
           // 更新剩余数量
           await client
             .from('onsite_gifts')
             .update({ remaining_count: gift.remaining_count - 1 })
-            .eq('id', gift.id);
+            .eq('id', gift.id)
         }
       }
 
       return {
         code: 200,
         msg: '领取码生成成功',
-        data: { codes },
-      };
+        data: { codes }
+      }
     } catch (error: any) {
-      this.logger.error(`生成领取码异常: ${error.message}`);
-      return { code: 500, msg: '生成领取码失败', data: null };
+      this.logger.error(`生成领取码异常: ${error.message}`)
+      return { code: 500, msg: '生成领取码失败', data: null }
     }
   }
 
@@ -110,36 +113,36 @@ export class OnsiteGiftController {
     @Query('banquetId') banquetId: string,
     @Query('guestOpenid') guestOpenid: string
   ) {
-    this.logger.log(`查询领取码: banquetId=${banquetId}, guest=${guestOpenid}`);
+    this.logger.log(`查询领取码: banquetId=${banquetId}, guest=${guestOpenid}`)
 
     try {
-      const client = getSupabaseClient();
+      const client = getSupabaseClient()
 
       const { data, error } = await client
         .from('gift_claim_codes')
         .select('*')
         .eq('banquet_id', banquetId)
         .eq('guest_openid', guestOpenid)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
 
       if (error) {
-        this.logger.error(`查询领取码失败: ${error.message}`);
-        return { code: 500, msg: '查询失败', data: [] };
+        this.logger.error(`查询领取码失败: ${error.message}`)
+        return { code: 500, msg: '查询失败', data: [] }
       }
 
-      const codes = (data || []).map((item) => ({
+      const codes = (data || []).map(item => ({
         code: item.code,
         giftName: item.gift_name,
         giftImage: item.gift_image,
         status: item.status,
         claimedAt: item.claimed_at,
-        usedAt: item.used_at,
-      }));
+        usedAt: item.used_at
+      }))
 
-      return { code: 200, msg: 'success', data: codes };
+      return { code: 200, msg: 'success', data: codes }
     } catch (error: any) {
-      this.logger.error(`查询领取码异常: ${error.message}`);
-      return { code: 500, msg: '查询失败', data: [] };
+      this.logger.error(`查询领取码异常: ${error.message}`)
+      return { code: 500, msg: '查询失败', data: [] }
     }
   }
 
@@ -150,24 +153,22 @@ export class OnsiteGiftController {
   @Public()
   @Get('code/:code')
   async getCodeInfo(@Param('code') code: string) {
-    this.logger.log(`扫码查询领取码: code=${code}`);
+    this.logger.log(`扫码查询领取码: code=${code}`)
 
     try {
-      const client = getSupabaseClient();
+      const client = getSupabaseClient()
 
       const { data, error } = await client
         .from('gift_claim_codes')
-        .select(
-          `
+        .select(`
           *,
           banquets(name, type, event_time, location)
-        `
-        )
+        `)
         .eq('code', code)
-        .single();
+        .single()
 
       if (error || !data) {
-        return { code: 404, msg: '领取码不存在', data: null };
+        return { code: 404, msg: '领取码不存在', data: null }
       }
 
       return {
@@ -179,12 +180,12 @@ export class OnsiteGiftController {
           giftImage: data.gift_image,
           status: data.status,
           guestName: data.guest_name,
-          banquet: data.banquets,
-        },
-      };
+          banquet: data.banquets
+        }
+      }
     } catch (error: any) {
-      this.logger.error(`查询领取码异常: ${error.message}`);
-      return { code: 500, msg: '查询失败', data: null };
+      this.logger.error(`查询领取码异常: ${error.message}`)
+      return { code: 500, msg: '查询失败', data: null }
     }
   }
 
@@ -193,26 +194,32 @@ export class OnsiteGiftController {
    * 主办方确认发放礼品
    */
   @Post('redeem')
-  async redeemCode(@Body() body: { code: string; verifierOpenid?: string }, @Req() req: Request) {
-    const verifierOpenid = req.user?.openid || body.verifierOpenid || 'host_test';
-    this.logger.log(`核销领取码: code=${body.code}, verifier=${verifierOpenid}`);
+  async redeemCode(
+    @Body() body: { code: string; verifierOpenid?: string },
+    @Req() req: Request
+  ) {
+    const verifierOpenid = req.user?.openid
+    if (!verifierOpenid) {
+      return { code: 401, msg: '请先登录', data: null }
+    }
+    this.logger.log(`核销领取码: code=${body.code}, verifier=${verifierOpenid}`)
 
     try {
-      const client = getSupabaseClient();
+      const client = getSupabaseClient()
 
       // 查询领取码
       const { data: claimCode, error: queryError } = await client
         .from('gift_claim_codes')
         .select('*')
         .eq('code', body.code)
-        .single();
+        .single()
 
       if (queryError || !claimCode) {
-        return { code: 404, msg: '领取码不存在', data: null };
+        return { code: 404, msg: '领取码不存在', data: null }
       }
 
       if (claimCode.status === 'used') {
-        return { code: 400, msg: '该领取码已核销', data: null };
+        return { code: 400, msg: '该领取码已核销', data: null }
       }
 
       // 更新领取码状态
@@ -220,36 +227,38 @@ export class OnsiteGiftController {
         .from('gift_claim_codes')
         .update({
           status: 'used',
-          used_at: new Date().toISOString(),
+          used_at: new Date().toISOString()
         })
-        .eq('code', body.code);
+        .eq('code', body.code)
 
       if (updateError) {
-        this.logger.error(`更新领取码状态失败: ${updateError.message}`);
-        return { code: 500, msg: '核销失败', data: null };
+        this.logger.error(`更新领取码状态失败: ${updateError.message}`)
+        return { code: 500, msg: '核销失败', data: null }
       }
 
       // 记录核销历史
-      await client.from('gift_redemption_records').insert({
-        banquet_id: claimCode.banquet_id,
-        claim_code_id: claimCode.id,
-        gift_id: claimCode.gift_id,
-        guest_openid: claimCode.guest_openid,
-        verifier_openid: verifierOpenid,
-      });
+      await client
+        .from('gift_redemption_records')
+        .insert({
+          banquet_id: claimCode.banquet_id,
+          claim_code_id: claimCode.id,
+          gift_id: claimCode.gift_id,
+          guest_openid: claimCode.guest_openid,
+          verifier_openid: verifierOpenid
+        })
 
-      this.logger.log(`领取码核销成功: code=${body.code}`);
+      this.logger.log(`领取码核销成功: code=${body.code}`)
       return {
         code: 200,
         msg: '核销成功',
         data: {
           giftName: claimCode.gift_name,
-          guestName: claimCode.guest_name,
-        },
-      };
+          guestName: claimCode.guest_name
+        }
+      }
     } catch (error: any) {
-      this.logger.error(`核销领取码异常: ${error.message}`);
-      return { code: 500, msg: '核销失败', data: null };
+      this.logger.error(`核销领取码异常: ${error.message}`)
+      return { code: 500, msg: '核销失败', data: null }
     }
   }
 
@@ -257,36 +266,39 @@ export class OnsiteGiftController {
    * 获取宴会现场礼品列表
    */
   @Get('banquet/:banquetId')
-  async getBanquetGifts(@Param('banquetId') banquetId: string, @Req() req: Request) {
-    this.logger.log(`获取宴会现场礼品: banquetId=${banquetId}`);
+  async getBanquetGifts(
+    @Param('banquetId') banquetId: string,
+    @Req() req: Request
+  ) {
+    this.logger.log(`获取宴会现场礼品: banquetId=${banquetId}`)
 
     try {
-      const client = getSupabaseClient();
+      const client = getSupabaseClient()
 
       const { data, error } = await client
         .from('onsite_gifts')
         .select('*')
-        .eq('banquet_id', banquetId);
+        .eq('banquet_id', banquetId)
 
       if (error) {
-        this.logger.error(`获取现场礼品失败: ${error.message}`);
-        return { code: 500, msg: '获取失败', data: [] };
+        this.logger.error(`获取现场礼品失败: ${error.message}`)
+        return { code: 500, msg: '获取失败', data: [] }
       }
 
-      const gifts = (data || []).map((item) => ({
+      const gifts = (data || []).map(item => ({
         id: item.id,
         name: item.name,
         image: item.image,
         price: item.price,
         displayPrice: (item.price / 100).toFixed(2),
         totalCount: item.total_count,
-        remainingCount: item.remaining_count,
-      }));
+        remainingCount: item.remaining_count
+      }))
 
-      return { code: 200, msg: 'success', data: gifts };
+      return { code: 200, msg: 'success', data: gifts }
     } catch (error: any) {
-      this.logger.error(`获取现场礼品异常: ${error.message}`);
-      return { code: 500, msg: '获取失败', data: [] };
+      this.logger.error(`获取现场礼品异常: ${error.message}`)
+      return { code: 500, msg: '获取失败', data: [] }
     }
   }
 
@@ -301,27 +313,27 @@ export class OnsiteGiftController {
     @Query('pageSize') pageSize: string = '20',
     @Req() req: Request
   ) {
-    this.logger.log(`获取现场礼品核销统计: banquetId=${banquetId}`);
+    this.logger.log(`获取现场礼品核销统计: banquetId=${banquetId}`)
 
     try {
-      const client = getSupabaseClient();
-      const pageNum = parseInt(page) || 1;
-      const pageSizeNum = parseInt(pageSize) || 20;
-      const offset = (pageNum - 1) * pageSizeNum;
+      const client = getSupabaseClient()
+      const pageNum = parseInt(page) || 1
+      const pageSizeNum = parseInt(pageSize) || 20
+      const offset = (pageNum - 1) * pageSizeNum
 
       // 1. 获取现场礼品统计（总量、剩余量）
       const { data: gifts, error: giftsError } = await client
         .from('onsite_gifts')
         .select('*')
-        .eq('banquet_id', banquetId);
+        .eq('banquet_id', banquetId)
 
       if (giftsError) {
-        this.logger.error(`获取现场礼品失败: ${giftsError.message}`);
-        return { code: 500, msg: '获取失败', data: null };
+        this.logger.error(`获取现场礼品失败: ${giftsError.message}`)
+        return { code: 500, msg: '获取失败', data: null }
       }
 
       // 计算汇总统计
-      const giftStats = (gifts || []).map((item) => ({
+      const giftStats = (gifts || []).map(item => ({
         id: item.id,
         name: item.name,
         image: item.image,
@@ -330,31 +342,22 @@ export class OnsiteGiftController {
         totalCount: item.total_count,
         remainingCount: item.remaining_count,
         claimedCount: item.total_count - item.remaining_count,
-        claimedPercentage:
-          item.total_count > 0
-            ? (((item.total_count - item.remaining_count) / item.total_count) * 100).toFixed(1)
-            : '0',
-      }));
+        claimedPercentage: item.total_count > 0 
+          ? ((item.total_count - item.remaining_count) / item.total_count * 100).toFixed(1)
+          : '0'
+      }))
 
       const totalStats = {
         totalGifts: (gifts || []).length,
         totalCount: (gifts || []).reduce((sum, g) => sum + g.total_count, 0),
         totalRemaining: (gifts || []).reduce((sum, g) => sum + g.remaining_count, 0),
-        totalClaimed: (gifts || []).reduce(
-          (sum, g) => sum + (g.total_count - g.remaining_count),
-          0
-        ),
-      };
+        totalClaimed: (gifts || []).reduce((sum, g) => sum + (g.total_count - g.remaining_count), 0)
+      }
 
       // 2. 获取核销明细（分页）
-      const {
-        data: records,
-        error: recordsError,
-        count,
-      } = await client
+      const { data: records, error: recordsError, count } = await client
         .from('gift_redemption_records')
-        .select(
-          `
+        .select(`
           id,
           created_at,
           gift_id,
@@ -362,30 +365,28 @@ export class OnsiteGiftController {
           verifier_openid,
           claim_code_id,
           gift_claim_codes(code, guest_name, gift_name)
-        `,
-          { count: 'exact' }
-        )
+        `, { count: 'exact' })
         .eq('banquet_id', banquetId)
         .order('created_at', { ascending: false })
-        .range(offset, offset + pageSizeNum - 1);
+        .range(offset, offset + pageSizeNum - 1)
 
       if (recordsError) {
-        this.logger.error(`获取核销明细失败: ${recordsError.message}`);
-        return { code: 500, msg: '获取核销明细失败', data: null };
+        this.logger.error(`获取核销明细失败: ${recordsError.message}`)
+        return { code: 500, msg: '获取核销明细失败', data: null }
       }
 
       // 格式化核销明细
-      const redemptionRecords = (records || []).map((record) => {
-        const claimCode = record.gift_claim_codes as any;
+      const redemptionRecords = (records || []).map(record => {
+        const claimCode = record.gift_claim_codes as any
         return {
           id: record.id,
           code: claimCode?.code || '',
           guestName: claimCode?.guest_name || '未知',
           giftName: claimCode?.gift_name || '未知礼品',
           verifierOpenid: record.verifier_openid,
-          redeemedAt: record.created_at,
-        };
-      });
+          redeemedAt: record.created_at
+        }
+      })
 
       return {
         code: 200,
@@ -400,13 +401,13 @@ export class OnsiteGiftController {
             page: pageNum,
             pageSize: pageSizeNum,
             total: count || 0,
-            totalPages: Math.ceil((count || 0) / pageSizeNum),
-          },
-        },
-      };
+            totalPages: Math.ceil((count || 0) / pageSizeNum)
+          }
+        }
+      }
     } catch (error: any) {
-      this.logger.error(`获取核销统计异常: ${error.message}`);
-      return { code: 500, msg: '获取失败', data: null };
+      this.logger.error(`获取核销统计异常: ${error.message}`)
+      return { code: 500, msg: '获取失败', data: null }
     }
   }
 
@@ -414,11 +415,11 @@ export class OnsiteGiftController {
    * 生成随机领取码
    */
   private generateRandomCode(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let code = '';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    let code = ''
     for (let i = 0; i < 8; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
+      code += chars.charAt(Math.floor(Math.random() * chars.length))
     }
-    return code;
+    return code
   }
 }

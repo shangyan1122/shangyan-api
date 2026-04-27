@@ -1,20 +1,5 @@
-import { relations } from 'drizzle-orm/relations';
-import {
-  banquets,
-  giftRecords,
-  returnGifts,
-  gifts,
-  users,
-  referralCodes,
-  referralBinds,
-  commissions,
-  withdrawRecords,
-  giftProducts,
-  cartItems,
-  partners,
-  channelPartners,
-  merchantAccounts,
-} from './schema';
+import { relations } from "drizzle-orm/relations";
+import { banquets, giftRecords, returnGifts, gifts, users, referralCodes, referralBinds, commissions, withdrawRecords, giftProducts, cartItems, partners, channelPartners, merchantAccounts } from "./schema";
 
 // 宴会与随礼记录的关系
 export const banquetsRelations = relations(banquets, ({ many }) => ({
@@ -48,8 +33,8 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     fields: [users.id],
     references: [referralCodes.userId],
   }),
-  referralBindsAsReferrer: many(referralBinds, { relationName: 'referrer' }),
-  referralBindsAsInvitee: many(referralBinds, { relationName: 'invitee' }),
+  referralBindsAsReferrer: many(referralBinds, { relationName: "referrer" }),
+  referralBindsAsInvitee: many(referralBinds, { relationName: "invitee" }),
   commissions: many(commissions),
   withdrawRecords: many(withdrawRecords),
 }));
@@ -67,12 +52,12 @@ export const referralBindsRelations = relations(referralBinds, ({ one }) => ({
   referrer: one(users, {
     fields: [referralBinds.referrerId],
     references: [users.id],
-    relationName: 'referrer',
+    relationName: "referrer",
   }),
   invitee: one(users, {
     fields: [referralBinds.inviteeId],
     references: [users.id],
-    relationName: 'invitee',
+    relationName: "invitee",
   }),
 }));
 

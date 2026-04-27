@@ -1,31 +1,27 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { wechatPayConfig } from './wechat-pay.config';
-import { randomUUID } from 'crypto';
+import { Injectable, Logger } from '@nestjs/common'
+import { wechatPayConfig } from './wechat-pay.config'
+import { randomUUID } from 'crypto'
 
 @Injectable()
 export class WechatPayService {
-  private readonly logger = new Logger(WechatPayService.name);
-  private paymentService: any;
+  private readonly logger = new Logger(WechatPayService.name)
+  private paymentService: any
 
   constructor() {
-    this.initPaymentService();
+    this.initPaymentService()
   }
 
   private initPaymentService() {
     try {
       // 动态导入 wechatpay-node-v3
-      const WechatPay = require('wechatpay-node-v3');
-
+      const WechatPay = require('wechatpay-node-v3')
+      
       // 检查配置是否完整
-      if (
-        !wechatPayConfig.appId ||
-        !wechatPayConfig.mchId ||
-        wechatPayConfig.appId === 'wx_app_id' ||
-        wechatPayConfig.mchId === 'merchant_id'
-      ) {
-        this.logger.warn('微信支付配置不完整，使用模拟模式');
-        this.paymentService = null;
-        return;
+      if (!wechatPayConfig.appId || !wechatPayConfig.mchId || 
+          wechatPayConfig.appId === 'wx_app_id' || wechatPayConfig.mchId === 'merchant_id') {
+        this.logger.warn('微信支付配置不完整，使用模拟模式')
+        this.paymentService = null
+        return
       }
 
       this.paymentService = new WechatPay({
@@ -33,52 +29,83 @@ export class WechatPayService {
         mchid: wechatPayConfig.mchId,
         serial_no: wechatPayConfig.serialNo,
         privateKey: Buffer.from(wechatPayConfig.privateKey || ''),
-        publicKey: Buffer.from(wechatPayConfig.publicKey || ''),
-      });
-      this.logger.log('微信支付服务初始化成功');
+        publicKey: Buffer.from(wechatPayConfig.publicKey || '')
+      })
+      this.logger.log('微信支付服务初始化成功')
     } catch (error: any) {
-      this.logger.warn(`微信支付服务初始化失败: ${error.message}，使用模拟模式`);
-      this.paymentService = null;
+      this.logger.warn(`微信支付服务初始化失败: ${error.message}，使用模拟模式`)
+      this.paymentService = null
     }
   }
 
   /**
    * 创建 JSAPI 支付订单
+   * @param params.enableProfitSharing 是否启用分账（商城/增值服务订单必须传true）
    */
   async createJsapiOrder(params: {
-    openid: string;
-    amount: number;
-    description: string;
-    orderId: string;
+    openid: string
+    amount: number
+    description: string
+    orderId: string
+    enableProfitSharing?: boolean
   }) {
-    const { openid, amount, description, orderId } = params;
+    const { openid, amount, description, orderId, enableProfitSharing } = params
+
+    // 模拟模式
+    if (process.env.MOCK_PAYMENT === 'true' || !this.paymentService) {
+      this.logger.log(`[模拟模式] 创建支付订单: ${orderId}${enableProfitSharing ? ' (启用分账)' : ''}`)
+      const timestamp = Math.floor(Date.now() / 1000).toString()
+      const nonceStr = randomUUID().replace(/-/g, '')
+      const prepayId = `mock_prepay_id_${orderId}`
+
+      return {
+        success: true,
+        data: {
+          timeStamp: timestamp,
+          nonceStr,
+          package: `prepay_id=${prepayId}`,
+          signType: 'RSA',
+          paySign: `mock_sign_${timestamp}`,
+          prepayId
+        }
+      }
+    }
 
     try {
-      const result = await this.paymentService.transactions_jsapi({
+      const orderData: any = {
         description,
         out_trade_no: orderId,
         notify_url: wechatPayConfig.notifyUrl,
         amount: {
           total: Math.round(amount), // 单位：分
-          currency: 'CNY',
+          currency: 'CNY'
         },
         payer: {
-          openid,
-        },
-      });
+          openid
+        }
+      }
+
+      // 商城/增值服务订单需要启用分账，资金先冻结，等退款完成后分账
+      if (enableProfitSharing) {
+        orderData.settle_info = {
+          profit_sharing: true
+        }
+      }
+
+      const result = await this.paymentService.transactions_jsapi(orderData)
 
       if (result.status === 200 || result.status === 201) {
         // 生成前端支付参数
-        const timestamp = Math.floor(Date.now() / 1000).toString();
-        const nonceStr = randomUUID().replace(/-/g, '');
-        const packageStr = `prepay_id=${result.prepay_id}`;
+        const timestamp = Math.floor(Date.now() / 1000).toString()
+        const nonceStr = randomUUID().replace(/-/g, '')
+        const packageStr = `prepay_id=${result.prepay_id}`
 
         const paySign = this.paymentService.getPaySign(
           wechatPayConfig.appId,
           timestamp,
           nonceStr,
           packageStr
-        );
+        )
 
         return {
           success: true,
@@ -88,22 +115,22 @@ export class WechatPayService {
             package: packageStr,
             signType: 'RSA',
             paySign,
-            prepayId: result.prepay_id,
-          },
-        };
+            prepayId: result.prepay_id
+          }
+        }
       }
 
-      this.logger.error('创建支付订单失败:', result);
+      this.logger.error('创建支付订单失败:', result)
       return {
         success: false,
-        message: '创建支付订单失败',
-      };
+        message: '创建支付订单失败'
+      }
     } catch (error) {
-      this.logger.error('创建支付订单异常:', error);
+      this.logger.error('创建支付订单异常:', error)
       return {
         success: false,
-        message: error.message || '创建支付订单异常',
-      };
+        message: error.message || '创建支付订单异常'
+      }
     }
   }
 
@@ -111,21 +138,44 @@ export class WechatPayService {
    * 查询订单
    */
   async queryOrder(orderId: string) {
+    // 模拟模式
+    if (process.env.MOCK_PAYMENT === 'true' || !this.paymentService) {
+      this.logger.log(`[模拟模式] 查询订单: ${orderId}`)
+      return {
+        success: true,
+        data: {
+          out_trade_no: orderId,
+          trade_state: 'SUCCESS',
+          transaction_id: `mock_transaction_id_${orderId}`,
+          trade_state_desc: '支付成功',
+          amount: {
+            total: 100,
+            payer_total: 100,
+            currency: 'CNY'
+          },
+          success_time: new Date().toISOString(),
+          payer: {
+            openid: 'test_openid_123456'
+          }
+        }
+      }
+    }
+
     try {
       const result = await this.paymentService.query({
-        out_trade_no: orderId,
-      });
+        out_trade_no: orderId
+      })
 
       return {
         success: true,
-        data: result,
-      };
+        data: result
+      }
     } catch (error) {
-      this.logger.error('查询订单失败:', error);
+      this.logger.error('查询订单失败:', error)
       return {
         success: false,
-        message: error.message || '查询订单失败',
-      };
+        message: error.message || '查询订单失败'
+      }
     }
   }
 
@@ -135,16 +185,16 @@ export class WechatPayService {
   async closeOrder(orderId: string) {
     try {
       await this.paymentService.close({
-        out_trade_no: orderId,
-      });
+        out_trade_no: orderId
+      })
 
-      return { success: true };
+      return { success: true }
     } catch (error) {
-      this.logger.error('关闭订单失败:', error);
+      this.logger.error('关闭订单失败:', error)
       return {
         success: false,
-        message: error.message || '关闭订单失败',
-      };
+        message: error.message || '关闭订单失败'
+      }
     }
   }
 
@@ -152,13 +202,35 @@ export class WechatPayService {
    * 申请退款
    */
   async refund(params: {
-    orderId: string;
-    refundId: string;
-    totalAmount: number;
-    refundAmount: number;
-    reason?: string;
+    orderId: string
+    refundId: string
+    totalAmount: number
+    refundAmount: number
+    reason?: string
   }) {
-    const { orderId, refundId, totalAmount, refundAmount, reason } = params;
+    const { orderId, refundId, totalAmount, refundAmount, reason } = params
+
+    // 模拟模式
+    if (process.env.MOCK_PAYMENT === 'true' || !this.paymentService) {
+      this.logger.log(`[模拟模式] 申请退款: ${orderId}`)
+      return {
+        success: true,
+        data: {
+          out_trade_no: orderId,
+          out_refund_no: refundId,
+          refund_id: `mock_refund_id_${refundId}`,
+          refund_status: 'SUCCESS',
+          refund_status_desc: '退款成功',
+          amount: {
+            total: Math.round(totalAmount),
+            refund: Math.round(refundAmount),
+            currency: 'CNY'
+          },
+          success_time: new Date().toISOString(),
+          reason: reason || '用户申请退款'
+        }
+      }
+    }
 
     try {
       const result = await this.paymentService.refunds({
@@ -168,20 +240,20 @@ export class WechatPayService {
         amount: {
           total: Math.round(totalAmount),
           refund: Math.round(refundAmount),
-          currency: 'CNY',
-        },
-      });
+          currency: 'CNY'
+        }
+      })
 
       return {
         success: true,
-        data: result,
-      };
+        data: result
+      }
     } catch (error) {
-      this.logger.error('申请退款失败:', error);
+      this.logger.error('申请退款失败:', error)
       return {
         success: false,
-        message: error.message || '申请退款失败',
-      };
+        message: error.message || '申请退款失败'
+      }
     }
   }
 
@@ -190,21 +262,21 @@ export class WechatPayService {
    */
   verifyNotify(headers: any, body: string): boolean {
     try {
-      const signature = headers['wechatpay-signature'];
-      const timestamp = headers['wechatpay-timestamp'];
-      const nonce = headers['wechatpay-nonce'];
-      const serial = headers['wechatpay-serial'];
+      const signature = headers['wechatpay-signature']
+      const timestamp = headers['wechatpay-timestamp']
+      const nonce = headers['wechatpay-nonce']
+      const serial = headers['wechatpay-serial']
 
       return this.paymentService.verifySign({
         signature,
         timestamp,
         nonce,
         serial,
-        body,
-      });
+        body
+      })
     } catch (error) {
-      this.logger.error('验证回调签名失败:', error);
-      return false;
+      this.logger.error('验证回调签名失败:', error)
+      return false
     }
   }
 
@@ -218,10 +290,10 @@ export class WechatPayService {
         resource.associated_data,
         resource.nonce,
         wechatPayConfig.apiV3Key
-      );
+      )
     } catch (error) {
-      this.logger.error('解密回调数据失败:', error);
-      return null;
+      this.logger.error('解密回调数据失败:', error)
+      return null
     }
   }
 
@@ -231,29 +303,29 @@ export class WechatPayService {
    * 用于发送红包、提现等场景
    */
   async transferToBalance(params: {
-    openid: string;
-    amount: number;
-    description: string;
-    orderId?: string;
+    openid: string
+    amount: number
+    description: string
+    orderId?: string
   }): Promise<{ success: boolean; paymentNo?: string; errorMsg?: string }> {
-    const { openid, amount, description, orderId } = params;
+    const { openid, amount, description, orderId } = params
 
-    this.logger.log(`商家转账到零钱: openid=${openid}, 金额=${amount}分`);
+    this.logger.log(`商家转账到零钱: openid=${openid}, 金额=${amount}分`)
 
     // 检查是否配置了真实的微信支付
     if (!wechatPayConfig.appId || !wechatPayConfig.mchId) {
-      this.logger.warn('微信支付未配置，使用模拟转账');
+      this.logger.warn('微信支付未配置，使用模拟转账')
       return {
         success: true,
-        paymentNo: `MOCK${Date.now()}`,
-      };
+        paymentNo: `MOCK${Date.now()}`
+      }
     }
 
     try {
       // 生成商家批次单号
-      const outBatchNo = orderId || `BATCH${Date.now()}${Math.random().toString(36).substr(2, 6)}`;
+      const outBatchNo = orderId || `BATCH${Date.now()}${Math.random().toString(36).substr(2, 6)}`
       // 生成商家明细单号
-      const outDetailNo = `DETAIL${Date.now()}${Math.random().toString(36).substr(2, 6)}`;
+      const outDetailNo = `DETAIL${Date.now()}${Math.random().toString(36).substr(2, 6)}`
 
       const result = await this.paymentService.transferBatch({
         out_batch_no: outBatchNo,
@@ -266,30 +338,30 @@ export class WechatPayService {
             out_detail_no: outDetailNo,
             transfer_amount: amount,
             transfer_remark: description,
-            openid,
-          },
-        ],
-      });
+            openid
+          }
+        ]
+      })
 
       if (result.status === 200 || result.status === 201 || result.batch_id) {
-        this.logger.log(`商家转账成功: batchId=${result.batch_id}`);
+        this.logger.log(`商家转账成功: batchId=${result.batch_id}`)
         return {
           success: true,
-          paymentNo: result.batch_id || outBatchNo,
-        };
+          paymentNo: result.batch_id || outBatchNo
+        }
       }
 
-      this.logger.error('商家转账失败:', result);
+      this.logger.error('商家转账失败:', result)
       return {
         success: false,
-        errorMsg: result.message || '转账失败',
-      };
+        errorMsg: result.message || '转账失败'
+      }
     } catch (error: any) {
-      this.logger.error('商家转账异常:', error);
+      this.logger.error('商家转账异常:', error)
       return {
         success: false,
-        errorMsg: error.message || '转账异常',
-      };
+        errorMsg: error.message || '转账异常'
+      }
     }
   }
 }

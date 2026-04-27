@@ -1,11 +1,12 @@
-import { Controller, Get, Post, Param, Query, Logger, UseGuards } from '@nestjs/common';
-import { AdminFinanceService } from './admin-finance.service';
-import { AdminAuthGuard } from '@/common/guards/admin-auth.guard';
+import { Controller, Get, Post, Param, Query, Logger, UseGuards } from '@nestjs/common'
+import { AdminFinanceService } from './admin-finance.service'
+import { AdminGuard } from '@/common/guards/admin.guard'
+import { RequirePermissions } from '@/common/guards/permission.guard'
 
 @Controller('admin/finance')
-@UseGuards(AdminAuthGuard)
+@UseGuards(AdminGuard)
 export class AdminFinanceController {
-  private readonly logger = new Logger(AdminFinanceController.name);
+  private readonly logger = new Logger(AdminFinanceController.name)
 
   constructor(private readonly adminFinanceService: AdminFinanceService) {}
 
@@ -13,14 +14,16 @@ export class AdminFinanceController {
    * 获取财务统计
    */
   @Get('stats')
+  @RequirePermissions('finance:read')
   async getStats() {
-    return this.adminFinanceService.getStats();
+    return this.adminFinanceService.getStats()
   }
 
   /**
    * 获取交易流水
    */
   @Get('transactions')
+  @RequirePermissions('finance:read')
   async getTransactions(
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
@@ -35,25 +38,27 @@ export class AdminFinanceController {
       type,
       category,
       startDate,
-      endDate,
-    });
+      endDate
+    })
   }
 
   /**
    * 审核通过提现
    */
   @Post('withdraw/:id/approve')
+  @RequirePermissions('finance:write')
   async approveWithdraw(@Param('id') id: string) {
-    this.logger.log(`审核通过提现: recordId=${id}`);
-    return this.adminFinanceService.approveWithdraw(id);
+    this.logger.log(`审核通过提现: recordId=${id}`)
+    return this.adminFinanceService.approveWithdraw(id)
   }
 
   /**
    * 拒绝提现
    */
   @Post('withdraw/:id/reject')
+  @RequirePermissions('finance:write')
   async rejectWithdraw(@Param('id') id: string) {
-    this.logger.log(`拒绝提现: recordId=${id}`);
-    return this.adminFinanceService.rejectWithdraw(id);
+    this.logger.log(`拒绝提现: recordId=${id}`)
+    return this.adminFinanceService.rejectWithdraw(id)
   }
 }

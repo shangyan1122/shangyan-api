@@ -1,43 +1,110 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { execSync } from 'child_process';
+
+let envLoaded = false;
 
 interface SupabaseCredentials {
   url: string;
   anonKey: string;
-  serviceKey?: string;
+}
+
+function loadEnv(): void {
+  // 始终尝试从 .env 文件加载，确保优先使用用户配置
+  try {
+    try {
+      require('dotenv').config();
+    } catch {
+      // dotenv not available
+    }
+
+    // 如果 .env 文件中有配置，直接使用 .env 文件中的配置
+    // 不需要转换为 COZE_* 变量，直接使用 SUPABASE_*
+    if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
+      envLoaded = true;
+      return;
+    }
+
+    // 如果 .env 文件中没有配置，尝试从 Coze 工作负载身份获取
+    if (envLoaded) {
+      return; // 已经从 Coze 加载过了
+    }
+
+    const pythonCode = `
+import os
+import sys
+try:
+    from coze_workload_identity import Client
+    client = Client()
+    env_vars = client.get_project_env_vars()
+    client.close()
+    for env_var in env_vars:
+        print(f"{env_var.key}={env_var.value}")
+except Exception as e:
+    print(f"# Error: {e}", file=sys.stderr)
+`;
+
+    const output = execSync(`python3 -c '${pythonCode.replace(/'/g, "'\"'\"'")}'`, {
+      encoding: 'utf-8',
+      timeout: 10000,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    const lines = output.trim().split('\n');
+    for (const line of lines) {
+      if (line.startsWith('#')) continue;
+      const eqIndex = line.indexOf('=');
+      if (eqIndex > 0) {
+        const key = line.substring(0, eqIndex);
+        let value = line.substring(eqIndex + 1);
+        if ((value.startsWith("'") && value.endsWith("'")) ||
+            (value.startsWith('"') && value.endsWith('"'))) {
+          value = value.slice(1, -1);
+        }
+        if (!process.env[key]) {
+          process.env[key] = value;
+        }
+      }
+    }
+
+    envLoaded = true;
+  } catch {
+    // Silently fail
+  }
 }
 
 function getSupabaseCredentials(): SupabaseCredentials {
-  // 优先使用标准 SUPABASE_ 变量，fallback 到 COZE_ 前缀变量
-  // 再 fallback 到硬编码的默认值（用于 Railway 部署调试）
-  const url =
-    process.env.SUPABASE_URL ||
-    process.env.COZE_SUPABASE_URL ||
-    'https://qrkwbbphskndxzkfsfep.supabase.co'; // 默认值
+  loadEnv();
 
-  const anonKey =
-    process.env.SUPABASE_ANON_KEY ||
-    process.env.COZE_SUPABASE_ANON_KEY ||
-    ''; // 不再提供默认值，强制要求设置环境变量
+  // 优先使用 .env 文件中的 SUPABASE_URL 和 SUPABASE_ANON_KEY
+  const url = process.env.SUPABASE_URL || process.env.COZE_SUPABASE_URL;
+  const anonKey = process.env.SUPABASE_ANON_KEY || process.env.COZE_SUPABASE_ANON_KEY;
 
-  const serviceKey =
-    process.env.SUPABASE_SERVICE_KEY ||
-    process.env.COZE_SUPABASE_SERVICE_KEY ||
-    ''; // 不再提供默认值，强制要求设置环境变量
-
-  // 不再抛出错误，只打印警告
-  if (!process.env.SUPABASE_URL && !process.env.COZE_SUPABASE_URL) {
-    console.warn('⚠️  SUPABASE_URL 环境变量未设置，使用默认值');
+  if (!url) {
+    throw new Error('SUPABASE_URL or COZE_SUPABASE_URL is not set');
   }
-  if (!process.env.SUPABASE_ANON_KEY && !process.env.COZE_SUPABASE_ANON_KEY) {
-    console.warn('⚠️  SUPABASE_ANON_KEY 环境变量未设置，使用默认值');
+  if (!anonKey) {
+    throw new Error('SUPABASE_ANON_KEY or COZE_SUPABASE_ANON_KEY is not set');
   }
 
-  return { url, anonKey, serviceKey };
+  return { url, anonKey };
 }
 
-/**
- * 获取普通 Supabase 客户端（使用 anon key）
- */
+function getSupabaseServiceCredentials(): SupabaseCredentials {
+  loadEnv();
+
+  const url = process.env.SUPABASE_URL || process.env.COZE_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_KEY;
+
+  if (!url) {
+    throw new Error('SUPABASE_URL or COZE_SUPABASE_URL is not set');
+  }
+  if (!serviceKey) {
+    throw new Error('SUPABASE_SERVICE_KEY is not set');
+  }
+
+  return { url, anonKey: serviceKey };
+}
+
 function getSupabaseClient(token?: string): SupabaseClient {
   const { url, anonKey } = getSupabaseCredentials();
 
@@ -67,16 +134,10 @@ function getSupabaseClient(token?: string): SupabaseClient {
   });
 }
 
-/**
- * 获取管理员 Supabase 客户端（使用 service_role key）
- * 用于 Storage 上传等需要绕过 RLS 的操作
- */
-function getSupabaseAdminClient(): SupabaseClient {
-  const { url, serviceKey, anonKey } = getSupabaseCredentials();
-  // 如果有 service_role key 使用它，否则用 anon key
-  const key = serviceKey || anonKey;
+function getSupabaseServiceClient(): SupabaseClient {
+  const { url, anonKey: serviceKey } = getSupabaseServiceCredentials();
 
-  return createClient(url, key, {
+  return createClient(url, serviceKey, {
     db: {
       timeout: 60000,
     },
@@ -87,4 +148,4 @@ function getSupabaseAdminClient(): SupabaseClient {
   });
 }
 
-export { getSupabaseCredentials, getSupabaseClient, getSupabaseAdminClient };
+export { loadEnv, getSupabaseCredentials, getSupabaseClient, getSupabaseServiceClient };

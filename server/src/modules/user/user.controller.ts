@@ -1,16 +1,14 @@
-import { Controller, Get, Query, Req, Logger, Post, Body, UseGuards } from '@nestjs/common';
-import { Request } from 'express';
-import { UserService } from './user.service';
-import { AuthGuard, Public } from '@/common/guards/auth.guard';
+import { Controller, Get, Query, Req, Logger, Post, Body } from '@nestjs/common'
+import { Request } from 'express'
+import { UserService } from './user.service'
 
 /**
  * 用户控制器
  * 处理用户相关的接口
  */
 @Controller('user')
-@UseGuards(AuthGuard)
 export class UserController {
-  private readonly logger = new Logger(UserController.name);
+  private readonly logger = new Logger(UserController.name)
 
   constructor(private readonly userService: UserService) {}
 
@@ -20,37 +18,41 @@ export class UserController {
    */
   @Get('stats')
   async getUserStats(@Req() req: Request) {
-    const openid = req.user?.openid;
-
+    const openid = req.user?.openid
+    
     if (!openid) {
-      return { code: 401, message: '未登录', data: { totalBanquets: 0, totalGifts: 0, totalAmount: 0 } };
+      return {
+        code: 401,
+        message: '请先登录',
+        data: null
+      }
     }
-
-    this.logger.log(`获取用户统计: openid=${openid}`);
+    
+    this.logger.log(`获取用户统计: openid=${openid}`)
 
     try {
-      const stats = await this.userService.getUserStats(openid);
-
+      const stats = await this.userService.getUserStats(openid)
+      
       return {
         code: 200,
         message: 'success',
         data: {
           totalBanquets: stats.totalBanquets || 0,
           totalGifts: stats.totalGifts || 0,
-          totalAmount: stats.totalAmount || 0,
-        },
-      };
+          totalAmount: stats.totalAmount || 0
+        }
+      }
     } catch (error: any) {
-      this.logger.error(`获取用户统计失败: ${error.message}`);
+      this.logger.error(`获取用户统计失败: ${error.message}`)
       return {
         code: 500,
         message: '获取统计数据失败',
         data: {
           totalBanquets: 0,
           totalGifts: 0,
-          totalAmount: 0,
-        },
-      };
+          totalAmount: 0
+        }
+      }
     }
   }
 
@@ -64,26 +66,35 @@ export class UserController {
     @Query('pageSize') pageSize: string = '20',
     @Req() req: Request
   ) {
-    const openid = req.user?.openid;
-    const pageNum = parseInt(page) || 1;
-    const pageSizeNum = Math.min(parseInt(pageSize) || 20, 100);
+    const openid = req.user?.openid
 
     if (!openid) {
-      return { code: 401, message: '未登录', data: { records: [], total: 0, page: pageNum, pageSize: pageSizeNum } };
+      return {
+        code: 401,
+        message: '请先登录',
+        data: null
+      }
     }
 
-    this.logger.log(`获取礼账: openid=${openid}, page=${pageNum}, pageSize=${pageSizeNum}`);
+    const pageNum = parseInt(page) || 1
+    const pageSizeNum = Math.min(parseInt(pageSize) || 20, 100)
+
+    this.logger.log(`获取礼账: openid=${openid}, page=${pageNum}, pageSize=${pageSizeNum}`)
 
     try {
-      const result = await this.userService.getGiftLedger(openid, pageNum, pageSizeNum);
+      const result = await this.userService.getGiftLedger(
+        openid,
+        pageNum,
+        pageSizeNum
+      )
 
       return {
         code: 200,
         message: 'success',
-        data: result,
-      };
+        data: result
+      }
     } catch (error: any) {
-      this.logger.error(`获取礼账失败: ${error.message}`);
+      this.logger.error(`获取礼账失败: ${error.message}`)
       return {
         code: 500,
         message: '获取礼账失败',
@@ -91,9 +102,9 @@ export class UserController {
           records: [],
           total: 0,
           page: pageNum,
-          pageSize: pageSizeNum,
-        },
-      };
+          pageSize: pageSizeNum
+        }
+      }
     }
   }
 
@@ -102,29 +113,33 @@ export class UserController {
    */
   @Get('my-gifts')
   async getMyGifts(@Req() req: Request) {
-    const openid = req.user?.openid;
+    const openid = req.user?.openid
 
     if (!openid) {
-      return { code: 401, message: '未登录', data: [] };
+      return {
+        code: 401,
+        message: '请先登录',
+        data: null
+      }
     }
 
-    this.logger.log(`获取我的随礼记录: openid=${openid}`);
+    this.logger.log(`获取我的随礼记录: openid=${openid}`)
 
     try {
-      const records = await this.userService.getGuestGifts(openid);
-
+      const records = await this.userService.getGuestGifts(openid)
+      
       return {
         code: 200,
         message: 'success',
-        data: records,
-      };
+        data: records
+      }
     } catch (error: any) {
-      this.logger.error(`获取随礼记录失败: ${error.message}`);
+      this.logger.error(`获取随礼记录失败: ${error.message}`)
       return {
         code: 500,
         message: '获取随礼记录失败',
-        data: [],
-      };
+        data: []
+      }
     }
   }
 
@@ -133,25 +148,25 @@ export class UserController {
    */
   @Get('my-banquets')
   async getMyBanquets(@Query('openid') openid: string, @Req() req: Request) {
-    const userOpenid = openid || req.user?.openid || '';
+    const userOpenid = openid || req.user?.openid || ''
 
-    this.logger.log(`获取我参加的宴会: openid=${userOpenid}`);
+    this.logger.log(`获取我参加的宴会: openid=${userOpenid}`)
 
     try {
-      const banquets = await this.userService.getGuestBanquets(userOpenid);
-
+      const banquets = await this.userService.getGuestBanquets(userOpenid)
+      
       return {
         code: 200,
         message: 'success',
-        data: banquets,
-      };
+        data: banquets
+      }
     } catch (error: any) {
-      this.logger.error(`获取宴会列表失败: ${error.message}`);
+      this.logger.error(`获取宴会列表失败: ${error.message}`)
       return {
         code: 500,
         message: '获取宴会列表失败',
-        data: [],
-      };
+        data: []
+      }
     }
   }
 
@@ -160,31 +175,31 @@ export class UserController {
    */
   @Get('info')
   async getUserInfo(@Query('openid') openid: string, @Req() req: Request) {
-    const userOpenid = openid || req.user?.openid;
+    const userOpenid = openid || req.user?.openid
 
     if (!userOpenid) {
       return {
         code: 401,
         message: '未登录',
-        data: null,
-      };
+        data: null
+      }
     }
 
     try {
-      const userInfo = await this.userService.getUserInfo(userOpenid);
-
+      const userInfo = await this.userService.getUserInfo(userOpenid)
+      
       return {
         code: 200,
         message: 'success',
-        data: userInfo,
-      };
+        data: userInfo
+      }
     } catch (error: any) {
-      this.logger.error(`获取用户信息失败: ${error.message}`);
+      this.logger.error(`获取用户信息失败: ${error.message}`)
       return {
         code: 500,
         message: '获取用户信息失败',
-        data: null,
-      };
+        data: null
+      }
     }
   }
 
@@ -193,41 +208,41 @@ export class UserController {
    */
   @Post('update')
   async updateUserInfo(@Body() body: any, @Req() req: Request) {
-    const openid = req.user?.openid;
+    const openid = req.user?.openid
 
     if (!openid) {
       return {
         code: 401,
         message: '未登录',
-        data: null,
-      };
+        data: null
+      }
     }
 
-    const { nickname, avatar } = body;
+    const { nickname, avatar } = body
 
     if (!nickname && !avatar) {
       return {
         code: 400,
         message: '没有需要更新的内容',
-        data: null,
-      };
+        data: null
+      }
     }
 
     try {
-      await this.userService.updateUserInfo(openid, { nickname, avatar });
-
+      await this.userService.updateUserInfo(openid, { nickname, avatar })
+      
       return {
         code: 200,
         message: '更新成功',
-        data: null,
-      };
+        data: null
+      }
     } catch (error: any) {
-      this.logger.error(`更新用户信息失败: ${error.message}`);
+      this.logger.error(`更新用户信息失败: ${error.message}`)
       return {
         code: 500,
         message: '更新失败',
-        data: null,
-      };
+        data: null
+      }
     }
   }
 
@@ -236,33 +251,33 @@ export class UserController {
    */
   @Post('vip/activate')
   async activateVip(@Body() body: any, @Req() req: Request) {
-    const openid = body.openid || req.user?.openid;
+    const openid = req.user?.openid
 
     if (!openid) {
       return {
         code: 401,
         message: '未登录',
-        data: null,
-      };
+        data: null
+      }
     }
 
-    const months = body.months || 12;
+    const months = body.months || 12
 
     try {
-      const result = await this.userService.activateVip(openid, months);
-
+      const result = await this.userService.activateVip(openid, months)
+      
       return {
         code: result.code,
         message: result.msg,
-        data: result.data,
-      };
+        data: result.data
+      }
     } catch (error: any) {
-      this.logger.error(`开通VIP失败: ${error.message}`);
+      this.logger.error(`开通VIP失败: ${error.message}`)
       return {
         code: 500,
         message: '开通VIP失败',
-        data: null,
-      };
+        data: null
+      }
     }
   }
 }

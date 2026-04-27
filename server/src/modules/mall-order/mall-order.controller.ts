@@ -1,13 +1,14 @@
-import { Controller, Get, Post, Body, Query, Param, UseGuards } from '@nestjs/common';
-import { Logger } from '@nestjs/common';
-import { MallOrderService, CreateOrderDto } from './mall-order.service';
+import { Controller, Get, Post, Body, Query, Param, UseGuards } from '@nestjs/common'
+import { Logger } from '@nestjs/common'
+import { MallOrderService, CreateOrderDto } from './mall-order.service'
+import { Public } from '@/common/guards/auth.guard'
 
 /**
  * 商城订单控制器
  */
 @Controller('mall-orders')
 export class MallOrderController {
-  private readonly logger = new Logger(MallOrderController.name);
+  private readonly logger = new Logger(MallOrderController.name)
 
   constructor(private readonly orderService: MallOrderService) {}
 
@@ -16,14 +17,14 @@ export class MallOrderController {
    */
   @Post('create')
   async createOrder(@Body() body: CreateOrderDto) {
-    this.logger.log(`创建订单: user=${body.userOpenid}, items=${body.items.length}`);
+    this.logger.log(`创建订单: user=${body.userOpenid}, items=${body.items.length}`)
 
     try {
-      const order = await this.orderService.createOrder(body);
-      return { code: 200, msg: 'success', data: order };
+      const order = await this.orderService.createOrder(body)
+      return { code: 200, msg: 'success', data: order }
     } catch (error: any) {
-      this.logger.error(`创建订单失败: ${error.message}`);
-      return { code: 500, msg: error.message || '创建订单失败', data: null };
+      this.logger.error(`创建订单失败: ${error.message}`)
+      return { code: 500, msg: error.message || '创建订单失败', data: null }
     }
   }
 
@@ -37,7 +38,7 @@ export class MallOrderController {
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string
   ) {
-    this.logger.log(`获取订单列表: openid=${openid}, status=${status}`);
+    this.logger.log(`获取订单列表: openid=${openid}, status=${status}`)
 
     try {
       const result = await this.orderService.getUserOrders(
@@ -45,11 +46,11 @@ export class MallOrderController {
         status,
         parseInt(page || '1'),
         parseInt(pageSize || '10')
-      );
-      return { code: 200, msg: 'success', data: result };
+      )
+      return { code: 200, msg: 'success', data: result }
     } catch (error: any) {
-      this.logger.error(`获取订单列表失败: ${error.message}`);
-      return { code: 500, msg: '获取订单列表失败', data: { orders: [], total: 0 } };
+      this.logger.error(`获取订单列表失败: ${error.message}`)
+      return { code: 500, msg: '获取订单列表失败', data: { orders: [], total: 0 } }
     }
   }
 
@@ -58,36 +59,41 @@ export class MallOrderController {
    */
   @Get(':id')
   async getOrderById(@Param('id') id: string) {
-    this.logger.log(`获取订单详情: ${id}`);
+    this.logger.log(`获取订单详情: ${id}`)
 
     try {
-      const order = await this.orderService.getOrderById(id);
+      const order = await this.orderService.getOrderById(id)
       if (!order) {
-        return { code: 404, msg: '订单不存在', data: null };
+        return { code: 404, msg: '订单不存在', data: null }
       }
-      return { code: 200, msg: 'success', data: order };
+      return { code: 200, msg: 'success', data: order }
     } catch (error: any) {
-      this.logger.error(`获取订单详情失败: ${error.message}`);
-      return { code: 500, msg: '获取订单详情失败', data: null };
+      this.logger.error(`获取订单详情失败: ${error.message}`)
+      return { code: 500, msg: '获取订单详情失败', data: null }
     }
   }
 
   /**
    * 支付成功回调
+   * ⚠️ 此接口由微信支付回调调用，不需要用户认证
+   * TODO: 添加微信支付签名验证，防止伪造回调
    */
+  @Public()
   @Post('payment-success')
-  async handlePaymentSuccess(@Body() body: { orderNo: string; transactionId: string }) {
-    this.logger.log(`支付成功回调: orderNo=${body.orderNo}`);
+  async handlePaymentSuccess(
+    @Body() body: { orderNo: string; transactionId: string }
+  ) {
+    this.logger.log(`支付成功回调: orderNo=${body.orderNo}`)
 
     try {
       const success = await this.orderService.handlePaymentSuccess(
         body.orderNo,
         body.transactionId
-      );
-      return { code: 200, msg: success ? 'success' : 'failed', data: { success } };
+      )
+      return { code: 200, msg: success ? 'success' : 'failed', data: { success } }
     } catch (error: any) {
-      this.logger.error(`处理支付回调失败: ${error.message}`);
-      return { code: 500, msg: error.message, data: { success: false } };
+      this.logger.error(`处理支付回调失败: ${error.message}`)
+      return { code: 500, msg: error.message, data: { success: false } }
     }
   }
 
@@ -96,20 +102,25 @@ export class MallOrderController {
    */
   @Post('ship')
   async shipOrder(
-    @Body() body: { orderId: string; company: string; code: string; trackingNo: string }
+    @Body() body: { 
+      orderId: string
+      company: string
+      code: string
+      trackingNo: string
+    }
   ) {
-    this.logger.log(`订单发货: orderId=${body.orderId}`);
+    this.logger.log(`订单发货: orderId=${body.orderId}`)
 
     try {
       const success = await this.orderService.shipOrder(body.orderId, {
         company: body.company,
         code: body.code,
-        trackingNo: body.trackingNo,
-      });
-      return { code: 200, msg: 'success', data: { success } };
+        trackingNo: body.trackingNo
+      })
+      return { code: 200, msg: 'success', data: { success } }
     } catch (error: any) {
-      this.logger.error(`发货失败: ${error.message}`);
-      return { code: 500, msg: error.message, data: { success: false } };
+      this.logger.error(`发货失败: ${error.message}`)
+      return { code: 500, msg: error.message, data: { success: false } }
     }
   }
 
@@ -118,14 +129,14 @@ export class MallOrderController {
    */
   @Post('confirm-receive')
   async confirmReceive(@Body() body: { orderId: string }) {
-    this.logger.log(`确认收货: orderId=${body.orderId}`);
+    this.logger.log(`确认收货: orderId=${body.orderId}`)
 
     try {
-      const success = await this.orderService.confirmReceive(body.orderId);
-      return { code: 200, msg: 'success', data: { success } };
+      const success = await this.orderService.confirmReceive(body.orderId)
+      return { code: 200, msg: 'success', data: { success } }
     } catch (error: any) {
-      this.logger.error(`确认收货失败: ${error.message}`);
-      return { code: 500, msg: error.message, data: { success: false } };
+      this.logger.error(`确认收货失败: ${error.message}`)
+      return { code: 500, msg: error.message, data: { success: false } }
     }
   }
 
@@ -133,15 +144,17 @@ export class MallOrderController {
    * 取消订单
    */
   @Post('cancel')
-  async cancelOrder(@Body() body: { orderId: string; reason?: string }) {
-    this.logger.log(`取消订单: orderId=${body.orderId}`);
+  async cancelOrder(
+    @Body() body: { orderId: string; reason?: string }
+  ) {
+    this.logger.log(`取消订单: orderId=${body.orderId}`)
 
     try {
-      const success = await this.orderService.cancelOrder(body.orderId, body.reason);
-      return { code: 200, msg: 'success', data: { success } };
+      const success = await this.orderService.cancelOrder(body.orderId, body.reason)
+      return { code: 200, msg: 'success', data: { success } }
     } catch (error: any) {
-      this.logger.error(`取消订单失败: ${error.message}`);
-      return { code: 500, msg: error.message, data: { success: false } };
+      this.logger.error(`取消订单失败: ${error.message}`)
+      return { code: 500, msg: error.message, data: { success: false } }
     }
   }
 
@@ -151,14 +164,14 @@ export class MallOrderController {
   @Get('admin/stats')
   async getAdminStats() {
     try {
-      const pendingShipCount = await this.orderService.getPendingShipCount();
-      return {
-        code: 200,
-        msg: 'success',
-        data: { pendingShipCount },
-      };
+      const pendingShipCount = await this.orderService.getPendingShipCount()
+      return { 
+        code: 200, 
+        msg: 'success', 
+        data: { pendingShipCount } 
+      }
     } catch (error: any) {
-      return { code: 500, msg: '获取统计失败', data: null };
+      return { code: 500, msg: '获取统计失败', data: null }
     }
   }
 
@@ -176,10 +189,10 @@ export class MallOrderController {
         status,
         parseInt(page || '1'),
         parseInt(pageSize || '20')
-      );
-      return { code: 200, msg: 'success', data: result };
+      )
+      return { code: 200, msg: 'success', data: result }
     } catch (error: any) {
-      return { code: 500, msg: '获取订单列表失败', data: { orders: [], total: 0 } };
+      return { code: 500, msg: '获取订单列表失败', data: { orders: [], total: 0 } }
     }
   }
 }

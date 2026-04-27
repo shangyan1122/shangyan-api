@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Body, Query, Request } from '@nestjs/common';
-import { ReferralService } from './referral.service';
+import { Controller, Get, Post, Body, Query, Request, Req } from '@nestjs/common'
+import { Request as ExpressRequest } from 'express'
+import { ReferralService } from './referral.service'
 
 @Controller('referral')
 export class ReferralController {
@@ -9,36 +10,48 @@ export class ReferralController {
    * 获取分销统计数据
    */
   @Get('stats')
-  async getStats(@Query('openid') openid: string, @Request() req: any) {
-    const userOpenid = openid || req.headers['x-wx-openid'] || 'test_openid_123';
-    return this.referralService.getReferralStats(userOpenid);
+  async getStats(@Req() req: ExpressRequest) {
+    const userOpenid = req.user?.openid
+    if (!userOpenid) {
+      return { code: 401, msg: '请先登录', data: null }
+    }
+    return this.referralService.getReferralStats(userOpenid)
   }
 
   /**
    * 获取邀请列表
    */
   @Get('invitees')
-  async getInvitees(@Query('openid') openid: string, @Request() req: any) {
-    const userOpenid = openid || req.headers['x-wx-openid'] || 'test_openid_123';
-    return this.referralService.getInvitees(userOpenid);
+  async getInvitees(@Req() req: ExpressRequest) {
+    const userOpenid = req.user?.openid
+    if (!userOpenid) {
+      return { code: 401, msg: '请先登录', data: null }
+    }
+    return this.referralService.getInvitees(userOpenid)
   }
 
   /**
    * 生成/获取邀请码
    */
   @Get('code')
-  async getReferralCode(@Query('openid') openid: string, @Request() req: any) {
-    const userOpenid = openid || req.headers['x-wx-openid'] || 'test_openid_123';
-    return this.referralService.getOrCreateReferralCode(userOpenid);
+  async getReferralCode(@Req() req: ExpressRequest) {
+    const userOpenid = req.user?.openid
+    if (!userOpenid) {
+      return { code: 401, msg: '请先登录', data: null }
+    }
+    return this.referralService.getOrCreateReferralCode(userOpenid)
   }
 
   /**
    * 绑定邀请关系（通过邀请码）
    */
   @Post('bind')
-  async bindReferrer(@Body() body: { openid?: string; code: string }, @Request() req: any) {
-    const userOpenid = body.openid || req.headers['x-wx-openid'] || 'test_openid_123';
-    return this.referralService.bindReferrer(userOpenid, body.code);
+  async bindReferrer(@Body() body: { openid?: string; code: string }, @Req() req: ExpressRequest) {
+    const userOpenid = req.user?.openid
+    if (!userOpenid) {
+      return { code: 401, msg: '请先登录', data: null }
+    }
+    return this.referralService.bindReferrer(userOpenid, body.code)
   }
 
   /**
@@ -48,20 +61,26 @@ export class ReferralController {
   @Post('bind-on-gift')
   async bindOnGift(
     @Body() body: { guestOpenid?: string; hostOpenid: string; banquetId: string },
-    @Request() req: any
+    @Req() req: ExpressRequest
   ) {
-    const guestOpenid = body.guestOpenid || req.headers['x-wx-openid'] || 'test_openid_123';
-    return this.referralService.bindOnGift(guestOpenid, body.hostOpenid, body.banquetId);
+    const guestOpenid = req.user?.openid
+    if (!guestOpenid) {
+      return { code: 401, msg: '请先登录', data: null }
+    }
+    return this.referralService.bindOnGift(guestOpenid, body.hostOpenid, body.banquetId)
   }
 
   /**
    * 检查用户是否是自由人
    */
   @Get('is-free')
-  async checkIsFree(@Query('openid') openid: string, @Request() req: any) {
-    const userOpenid = openid || req.headers['x-wx-openid'] || 'test_openid_123';
-    const isFree = await this.referralService.isFreePerson(userOpenid);
-    return { code: 200, msg: 'success', data: { isFreePerson: isFree } };
+  async checkIsFree(@Req() req: ExpressRequest) {
+    const userOpenid = req.user?.openid
+    if (!userOpenid) {
+      return { code: 401, msg: '请先登录', data: null }
+    }
+    const isFree = await this.referralService.isFreePerson(userOpenid)
+    return { code: 200, msg: 'success', data: { isFreePerson: isFree } }
   }
 
   /**
@@ -69,20 +88,9 @@ export class ReferralController {
    */
   @Post('calculate-commission')
   async calculateCommission(
-    @Body()
-    body: {
-      openid: string;
-      amount: number;
-      paymentId: string;
-      type: 'vip' | 'mall' | 'gift';
-    }
+    @Body() body: { openid: string; amount: number; paymentId: string; type: 'vip' | 'mall' | 'gift' }
   ) {
-    return this.referralService.calculateCommission(
-      body.openid,
-      body.amount,
-      body.paymentId,
-      body.type
-    );
+    return this.referralService.calculateCommission(body.openid, body.amount, body.paymentId, body.type)
   }
 
   /**
@@ -90,17 +98,20 @@ export class ReferralController {
    */
   @Post('free-person-create-banquet')
   async handleFreePersonCreateBanquet(@Body() body: { openid: string }) {
-    await this.referralService.handleFreePersonCreateBanquet(body.openid);
-    return { code: 200, msg: 'success' };
+    await this.referralService.handleFreePersonCreateBanquet(body.openid)
+    return { code: 200, msg: 'success' }
   }
 
   /**
    * 获取佣金明细
    */
   @Get('commissions')
-  async getCommissions(@Query('openid') openid: string, @Request() req: any) {
-    const userOpenid = openid || req.headers['x-wx-openid'] || 'test_openid_123';
-    return this.referralService.getCommissionHistory(userOpenid);
+  async getCommissions(@Req() req: ExpressRequest) {
+    const userOpenid = req.user?.openid
+    if (!userOpenid) {
+      return { code: 401, msg: '请先登录', data: null }
+    }
+    return this.referralService.getCommissionHistory(userOpenid)
   }
 
   /**
@@ -109,24 +120,20 @@ export class ReferralController {
    */
   @Post('check-expired')
   async checkExpired() {
-    const result = await this.referralService.checkExpiredRelations();
-    return { code: 200, msg: 'success', data: result };
+    const result = await this.referralService.checkExpiredRelations()
+    return { code: 200, msg: 'success', data: result }
   }
 
   /**
    * 用户登录/注册（确保用户存在）
    */
   @Post('login')
-  async login(
-    @Body() body: { openid?: string; nickname?: string; avatar?: string },
-    @Request() req: any
-  ) {
-    const userOpenid = body.openid || req.headers['x-wx-openid'] || 'test_openid_123';
-    const userId = await this.referralService.ensureUserExists(
-      userOpenid,
-      body.nickname,
-      body.avatar
-    );
-    return { code: 200, msg: 'success', data: { userId } };
+  async login(@Body() body: { openid?: string; nickname?: string; avatar?: string }, @Req() req: ExpressRequest) {
+    const userOpenid = req.user?.openid
+    if (!userOpenid) {
+      return { code: 401, msg: '请先登录', data: null }
+    }
+    const userId = await this.referralService.ensureUserExists(userOpenid, body.nickname, body.avatar)
+    return { code: 200, msg: 'success', data: { userId } }
   }
 }

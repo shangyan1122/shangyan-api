@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Body, Param, Query, Req } from '@nestjs/common';
-import { ReturnGiftService, ReturnGiftSetting, GuestReturnGift } from './return-gift.service';
+import { Controller, Get, Post, Body, Param, Query, Req } from '@nestjs/common'
+import { ReturnGiftService, ReturnGiftSetting, GuestReturnGift } from './return-gift.service'
 
 @Controller('return-gift')
 export class ReturnGiftController {
@@ -11,15 +11,15 @@ export class ReturnGiftController {
    */
   @Post('settings')
   async saveSettings(@Body() body: any) {
-    const { banquet_id, ...settings } = body;
+    const { banquet_id, ...settings } = body
 
-    const result = await this.returnGiftService.saveReturnGiftSettings(banquet_id, settings);
+    const result = await this.returnGiftService.saveReturnGiftSettings(banquet_id, settings)
 
     return {
       code: 200,
       msg: '保存成功',
-      data: result,
-    };
+      data: result
+    }
   }
 
   /**
@@ -28,13 +28,13 @@ export class ReturnGiftController {
    */
   @Get('settings/:banquetId')
   async getSettings(@Param('banquetId') banquetId: string) {
-    const result = await this.returnGiftService.getReturnGiftSettings(banquetId);
+    const result = await this.returnGiftService.getReturnGiftSettings(banquetId)
 
     return {
       code: 200,
       msg: '获取成功',
-      data: result,
-    };
+      data: result
+    }
   }
 
   /**
@@ -43,13 +43,13 @@ export class ReturnGiftController {
    */
   @Post('trigger')
   async triggerReturnGift(@Body() body: { gift_record_id: string }) {
-    const result = await this.returnGiftService.triggerReturnGift(body.gift_record_id);
+    const result = await this.returnGiftService.triggerReturnGift(body.gift_record_id)
 
     return {
       code: 200,
       msg: '回礼已触发',
-      data: result,
-    };
+      data: result
+    }
   }
 
   /**
@@ -58,13 +58,13 @@ export class ReturnGiftController {
    */
   @Get('guest/:giftRecordId')
   async getGuestReturnGift(@Param('giftRecordId') giftRecordId: string) {
-    const result = await this.returnGiftService.getGuestReturnGift(giftRecordId);
+    const result = await this.returnGiftService.getGuestReturnGift(giftRecordId)
 
     return {
       code: 200,
       msg: '获取成功',
-      data: result,
-    };
+      data: result
+    }
   }
 
   /**
@@ -73,24 +73,23 @@ export class ReturnGiftController {
    */
   @Post('claim-mall')
   async claimMallGift(
-    @Body()
-    body: {
-      return_gift_id: string;
-      claim_type: 'delivery' | 'exchange';
-      delivery_info?: { name: string; phone: string; address: string };
+    @Body() body: {
+      return_gift_id: string
+      claim_type: 'delivery' | 'exchange'
+      delivery_info?: { name: string; phone: string; address: string }
     }
   ) {
     const result = await this.returnGiftService.claimMallGift(
       body.return_gift_id,
       body.claim_type,
       body.delivery_info
-    );
+    )
 
     return {
       code: 200,
       msg: '领取成功',
-      data: result,
-    };
+      data: result
+    }
   }
 
   /**
@@ -99,13 +98,13 @@ export class ReturnGiftController {
    */
   @Post('claim-onsite')
   async claimOnsiteGift(@Body() body: { return_gift_id: string }) {
-    const result = await this.returnGiftService.claimOnsiteGift(body.return_gift_id);
+    const result = await this.returnGiftService.claimOnsiteGift(body.return_gift_id)
 
     return {
       code: 200,
       msg: '领取成功',
-      data: result,
-    };
+      data: result
+    }
   }
 
   /**
@@ -114,13 +113,13 @@ export class ReturnGiftController {
    */
   @Post('exchange')
   async exchangeOnsiteGift(@Body() body: { exchange_code: string }) {
-    const result = await this.returnGiftService.exchangeOnsiteGift(body.exchange_code);
+    const result = await this.returnGiftService.exchangeOnsiteGift(body.exchange_code)
 
     return {
       code: 200,
       msg: '核销成功',
-      data: result,
-    };
+      data: result
+    }
   }
 
   /**
@@ -130,19 +129,23 @@ export class ReturnGiftController {
    */
   @Post('exchange-with-auth')
   async exchangeOnsiteGiftWithAuth(
-    @Body() body: { exchange_code: string; verifier_wechat: string; verifier_openid?: string }
+    @Body() body: {
+      exchange_code: string
+      verifier_wechat: string
+      verifier_openid?: string
+    }
   ) {
     const result = await this.returnGiftService.exchangeOnsiteGiftWithAuth(
       body.exchange_code,
       body.verifier_wechat,
       body.verifier_openid
-    );
+    )
 
     return {
       code: 200,
       msg: '核销成功',
-      data: result,
-    };
+      data: result
+    }
   }
 
   /**
@@ -151,13 +154,13 @@ export class ReturnGiftController {
    */
   @Get('unclaimed-stats/:banquetId')
   async getUnclaimedStats(@Param('banquetId') banquetId: string) {
-    const result = await this.returnGiftService.getUnclaimedGiftsStats(banquetId);
+    const result = await this.returnGiftService.getUnclaimedGiftsStats(banquetId)
 
     return {
       code: 200,
       msg: '获取成功',
-      data: result,
-    };
+      data: result
+    }
   }
 
   /**
@@ -166,13 +169,13 @@ export class ReturnGiftController {
    */
   @Post('refund-unclaimed')
   async refundUnclaimedGifts(@Body() body: { banquet_id: string }) {
-    const result = await this.returnGiftService.refundUnclaimedGifts(body.banquet_id);
+    const result = await this.returnGiftService.refundUnclaimedGifts(body.banquet_id)
 
     return {
       code: 200,
       msg: result.message,
-      data: result,
-    };
+      data: result
+    }
   }
 
   /**
@@ -181,13 +184,13 @@ export class ReturnGiftController {
    */
   @Post('auto-ship')
   async autoShip() {
-    const result = await this.returnGiftService.autoConfirmShipment();
+    const result = await this.returnGiftService.autoConfirmShipment()
 
     return {
       code: result.success ? 200 : 500,
       msg: result.message,
-      data: { count: result.count },
-    };
+      data: { count: result.count }
+    }
   }
 
   /**
@@ -196,13 +199,13 @@ export class ReturnGiftController {
    */
   @Get('pending-ship')
   async getPendingShipOrders() {
-    const result = await this.returnGiftService.getPendingShipOrders();
+    const result = await this.returnGiftService.getPendingShipOrders()
 
     return {
       code: result.success ? 200 : 500,
       msg: result.success ? '获取成功' : result.message,
-      data: result.data,
-    };
+      data: result.data
+    }
   }
 
   /**
@@ -211,13 +214,13 @@ export class ReturnGiftController {
    */
   @Post('send-delivery-reminders')
   async sendDeliveryReminders() {
-    const result = await this.returnGiftService.sendDeliveryReminderNotices();
+    const result = await this.returnGiftService.sendDeliveryReminderNotices()
 
     return {
       code: result.success ? 200 : 500,
       msg: result.message,
-      data: { count: result.count },
-    };
+      data: { count: result.count }
+    }
   }
 
   /**
@@ -226,13 +229,13 @@ export class ReturnGiftController {
    */
   @Get('pending-delivery')
   async getPendingDeliveryRecords(@Query('banquetId') banquetId?: string) {
-    const result = await this.returnGiftService.getPendingDeliveryRecords(banquetId);
+    const result = await this.returnGiftService.getPendingDeliveryRecords(banquetId)
 
     return {
       code: result.success ? 200 : 500,
       msg: result.success ? '获取成功' : result.message,
-      data: result.data,
-    };
+      data: result.data
+    }
   }
 
   /**
@@ -241,12 +244,11 @@ export class ReturnGiftController {
    */
   @Post('update-delivery')
   async updateDeliveryInfo(
-    @Body()
-    body: {
-      return_gift_id: string;
-      recipient_name: string;
-      recipient_phone: string;
-      recipient_address: string;
+    @Body() body: {
+      return_gift_id: string
+      recipient_name: string
+      recipient_phone: string
+      recipient_address: string
     }
   ) {
     const result = await this.returnGiftService.updateDeliveryInfo(
@@ -254,12 +256,12 @@ export class ReturnGiftController {
       body.recipient_name,
       body.recipient_phone,
       body.recipient_address
-    );
+    )
 
     return {
       code: result.success ? 200 : 500,
       msg: result.message,
-      data: result.data,
-    };
+      data: result.data
+    }
   }
 }

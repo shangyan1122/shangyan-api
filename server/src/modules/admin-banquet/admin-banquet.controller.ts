@@ -1,11 +1,12 @@
-import { Controller, Get, Post, Delete, Param, Query, Logger, UseGuards } from '@nestjs/common';
-import { AdminBanquetService } from './admin-banquet.service';
-import { AdminAuthGuard } from '@/common/guards/admin-auth.guard';
+import { Controller, Get, Post, Put, Delete, Param, Query, Body, Logger, UseGuards } from '@nestjs/common'
+import { AdminBanquetService } from './admin-banquet.service'
+import { AdminGuard } from '@/common/guards/admin.guard'
+import { RequirePermissions } from '@/common/guards/permission.guard'
 
 @Controller('admin/banquets')
-@UseGuards(AdminAuthGuard)
+@UseGuards(AdminGuard)
 export class AdminBanquetController {
-  private readonly logger = new Logger(AdminBanquetController.name);
+  private readonly logger = new Logger(AdminBanquetController.name)
 
   constructor(private readonly adminBanquetService: AdminBanquetService) {}
 
@@ -13,6 +14,7 @@ export class AdminBanquetController {
    * 获取宴会列表
    */
   @Get()
+  @RequirePermissions('banquet:read')
   async getBanquets(
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
@@ -25,24 +27,39 @@ export class AdminBanquetController {
       pageSize: pageSize ? parseInt(pageSize) : 10,
       type,
       status,
-      search,
-    });
+      search
+    })
   }
 
   /**
    * 获取宴会详情
    */
   @Get(':id')
+  @RequirePermissions('banquet:read')
   async getBanquetDetail(@Param('id') id: string) {
-    return this.adminBanquetService.getBanquetDetail(id);
+    return this.adminBanquetService.getBanquetDetail(id)
   }
 
   /**
    * 删除宴会
    */
   @Delete(':id')
+  @RequirePermissions('banquet:write')
   async deleteBanquet(@Param('id') id: string) {
-    this.logger.log(`删除宴会: banquetId=${id}`);
-    return this.adminBanquetService.deleteBanquet(id);
+    this.logger.log(`删除宴会: banquetId=${id}`)
+    return this.adminBanquetService.deleteBanquet(id)
+  }
+
+  /**
+   * 审核宴会
+   */
+  @Put(':id/audit')
+  @RequirePermissions('banquet:audit')
+  async auditBanquet(
+    @Param('id') id: string,
+    @Body() body: { status: 'approved' | 'rejected'; remark?: string }
+  ) {
+    this.logger.log(`审核宴会: banquetId=${id}, status=${body.status}`)
+    return this.adminBanquetService.auditBanquet(id, body)
   }
 }
