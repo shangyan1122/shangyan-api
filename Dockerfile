@@ -20,9 +20,8 @@ RUN npm run build
 # 移除开发依赖（使用 pnpm）
 RUN pnpm install --prod --frozen-lockfile
 
-# 复制微信支付证书（如不存在则构建继续）
-# 注意：COPY 不支持 shell 重定向，需确保文件存在或使用 .dockerignore
-COPY server/certs ./certs
+# 复制微信支付证书（存在则复制，不存在则跳过，不影响构建）
+RUN if [ -d server/certs ]; then cp -r server/certs ./certs; else echo "No certs directory, skipping"; fi
 
 # 复制数据库初始化脚本
 COPY server/database ./database
