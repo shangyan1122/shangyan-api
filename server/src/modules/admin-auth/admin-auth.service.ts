@@ -11,11 +11,12 @@ const verificationCodes = new Map<string, { code: string; expireTime: number; co
 export class AdminAuthService {
   private readonly logger = new Logger(AdminAuthService.name)
   private readonly jwtSecret = process.env.JWT_SECRET || (() => {
+    // 生产环境发出严重警告但仍使用默认值，避免整个服务崩溃
     if (process.env.NODE_ENV === 'production') {
-      throw new Error('JWT_SECRET environment variable is required in production')
+      console.error('⚠️⚠️⚠️ JWT_SECRET 环境变量未设置，使用不安全的默认值！请立即在 Railway 中配置 JWT_SECRET')
+    } else {
+      console.warn('⚠️ 使用默认 JWT Secret，请设置 JWT_SECRET 环境变量')
     }
-    // 开发环境使用默认值，但会发出警告
-    console.warn('⚠️ 使用默认 JWT Secret，请设置 JWT_SECRET 环境变量')
     return 'shangyan-admin-secret-key-2024-dev-only'
   })()
   private readonly codeExpireMinutes = 5

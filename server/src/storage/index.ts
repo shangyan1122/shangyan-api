@@ -1,6 +1,14 @@
 import { getSupabaseClient } from './database/supabase-client'
 
-const supabase = getSupabaseClient()
+// 延迟初始化 Supabase 客户端，避免模块加载时因环境变量缺失崩溃
+let _supabase: ReturnType<typeof getSupabaseClient> | null = null
+
+function getSupabase(): ReturnType<typeof getSupabaseClient> {
+  if (!_supabase) {
+    _supabase = getSupabaseClient()
+  }
+  return _supabase
+}
 
 // 需要的存储桶列表
 const REQUIRED_BUCKETS = ['exports', 'banquets', 'avatars', 'gifts']
@@ -21,11 +29,11 @@ export async function initializeStorageBuckets(): Promise<void> {
   for (const bucketName of REQUIRED_BUCKETS) {
     try {
       // 检查存储桶是否存在
-      const { data: bucket, error: getError } = await supabase.storage.getBucket(bucketName)
+      const { data: bucket, error: getError } = await getSupabase().storage.getBucket(bucketName)
 
       if (getError || !bucket) {
         // 创建存储桶
-        const { error: createError } = await supabase.storage.createBucket(bucketName, {
+        const { error: createError } = await getSupabase().storage.createBucket(bucketName, {
           public: true,
           fileSizeLimit: 10485760, // 10MB
           allowedMimeTypes: [
@@ -61,7 +69,7 @@ export async function uploadToStorage(params: UploadParams): Promise<string> {
   // 确保存储桶存在
   await ensureBucketExists(bucket)
 
-  const { data, error } = await supabase.storage
+  const { data, error } = await getSupabase().storage
     .from(bucket)
     .upload(fileName, file, {
       contentType,
@@ -74,7 +82,7 @@ export async function uploadToStorage(params: UploadParams): Promise<string> {
   }
 
   // 获取公开访问 URL
-  const { data: urlData } = supabase.storage
+  const { data: urlData } = getSupabase().storage
     .from(bucket)
     .getPublicUrl(fileName)
 
@@ -85,10 +93,10 @@ export async function uploadToStorage(params: UploadParams): Promise<string> {
  * 确保存储桶存在
  */
 async function ensureBucketExists(bucketName: string): Promise<void> {
-  const { data: bucket, error } = await supabase.storage.getBucket(bucketName)
+  const { data: bucket, error } = await getSupabase().storage.getBucket(bucketName)
 
   if (error || !bucket) {
-    const { error: createError } = await supabase.storage.createBucket(bucketName, {
+    const { error: createError } = await getSupabase().storage.createBucket(bucketName, {
       public: true,
       fileSizeLimit: 10485760
     })
@@ -103,7 +111,7 @@ async function ensureBucketExists(bucketName: string): Promise<void> {
  * 从 Supabase Storage 删除文件
  */
 export async function deleteFromStorage(bucket: string, fileName: string): Promise<void> {
-  const { error } = await supabase.storage
+  const { error } = await getSupabase().storage
     .from(bucket)
     .remove([fileName])
 
@@ -117,7 +125,7 @@ export async function deleteFromStorage(bucket: string, fileName: string): Promi
  * 获取文件公开访问 URL
  */
 export function getPublicUrl(bucket: string, fileName: string): string {
-  const { data } = supabase.storage
+  const { data } = getSupabase().storage
     .from(bucket)
     .getPublicUrl(fileName)
 
