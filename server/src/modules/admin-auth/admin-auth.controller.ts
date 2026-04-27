@@ -2,6 +2,7 @@ import { Controller, Post, Get, Body, Logger, UseGuards, Query, Param, Delete, P
 import { Request } from 'express'
 import { AdminAuthService } from './admin-auth.service'
 import { AdminGuard } from '@/common/guards/admin.guard'
+import { Public } from '@/common/guards/auth.guard'
 
 @Controller('admin/auth')
 export class AdminAuthController {
@@ -12,6 +13,7 @@ export class AdminAuthController {
   /**
    * 发送登录验证码
    */
+  @Public()
   @Post('send-code')
   async sendCode(@Body() body: { phone: string }) {
     const { phone } = body
@@ -26,6 +28,7 @@ export class AdminAuthController {
   /**
    * 管理员登录
    */
+  @Public()
   @Post('login')
   async login(@Body() body: { phone: string; code: string }) {
     const { phone, code } = body
