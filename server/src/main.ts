@@ -87,7 +87,7 @@ async function bootstrap() {
   app.enableShutdownHooks();
 
   // 静态文件服务 - Web 管理后台
-  const webAdminDist = path.join(__dirname, '../../web-admin/dist');
+  const webAdminDist = path.join(__dirname, '../web-admin');
   app.use('/admin', express.static(webAdminDist));
   app.use('/admin', (req, res) => {
     res.sendFile(path.join(webAdminDist, 'index.html'));
