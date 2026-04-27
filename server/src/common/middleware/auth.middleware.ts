@@ -31,7 +31,7 @@ declare module 'express' {
     admin?: {
       id: string
       phone: string
-      name: string
+      name?: string
       role: string
     }
   }
