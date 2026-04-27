@@ -1,7 +1,8 @@
-import { Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common'
+import { Catch, ArgumentsHost, HttpException, HttpStatus, NotFoundException } from '@nestjs/common'
 import { BaseExceptionFilter } from '@nestjs/core'
 import * as Sentry from '@sentry/nestjs'
 import { Request, Response } from 'express'
+import * as path from 'path'
 
 /**
  * 全局异常过滤器 - 集成 Sentry
@@ -10,6 +11,7 @@ import { Request, Response } from 'express'
  * 1. 捕获所有异常并上报到 Sentry
  * 2. 返回统一的错误响应格式
  * 3. 记录请求上下文信息
+ * 4. 非 /api 的 404 请求返回 SPA index.html（前端路由 fallback）
  */
 @Catch()
 export class SentryFilter extends BaseExceptionFilter {
@@ -17,6 +19,12 @@ export class SentryFilter extends BaseExceptionFilter {
     const ctx = host.switchToHttp()
     const request = ctx.getRequest<Request>()
     const response = ctx.getResponse<Response>()
+
+    // SPA fallback: 非 /api 的 404 请求返回 index.html，交由前端 React Router 处理
+    if (exception instanceof NotFoundException && !request.path.startsWith('/api')) {
+      const webAdminDist = path.join(__dirname, '../../../web-admin')
+      return response.sendFile(path.join(webAdminDist, 'index.html'))
+    }
 
     // 获取状态码
     let status = HttpStatus.INTERNAL_SERVER_ERROR
