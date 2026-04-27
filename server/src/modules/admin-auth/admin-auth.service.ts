@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { getSupabaseClient } from '@/storage/database/supabase-client'
 import * as bcrypt from 'bcrypt'
 import * as jwt from 'jsonwebtoken'
-import { SmsService } from '@/services/sms.service'
+import { TencentSmsService } from '@/services/tencent-sms.service'
 
 // 模拟验证码存储（生产环境应使用Redis）
 const verificationCodes = new Map<string, { code: string; expireTime: number; count: number }>()
@@ -22,7 +22,7 @@ export class AdminAuthService {
   private readonly codeExpireMinutes = 5
   private readonly maxSendCount = 5  // 每小时最多发送次数
 
-  constructor(private readonly smsService: SmsService) {}
+  constructor(private readonly smsService: TencentSmsService) {}
 
   /**
    * 发送登录验证码
